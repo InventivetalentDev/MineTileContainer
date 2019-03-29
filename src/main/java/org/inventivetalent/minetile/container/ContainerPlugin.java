@@ -3,15 +3,11 @@ package org.inventivetalent.minetile.container;
 import com.google.common.io.ByteArrayDataInput;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
-import net.minecraft.server.v1_13_R2.ChatMessageType;
-import net.minecraft.server.v1_13_R2.IChatBaseComponent;
-import net.minecraft.server.v1_13_R2.PacketPlayOutChat;
 import org.bukkit.*;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.craftbukkit.v1_13_R2.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -366,8 +362,6 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		double globalX = event.getPlayer().getLocation().getX() - worldCenter.getX() + (tileData.x * tileSize * 2 * 16);
 		double globalZ = event.getPlayer().getLocation().getZ() - worldCenter.getZ() + (tileData.z * tileSize * 2 * 16);
 
-		showHotbarMessage(event.getPlayer(), "X: " + globalX + "  Z: " + globalZ);
-
 		// TODO: maybe support Y-Direction at some point
 
 		if (outside && timeoutCounter % 10 == 0) {
@@ -420,12 +414,6 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 				}
 			}
 		}
-	}
-
-	//TODO: remove
-	public void showHotbarMessage(Player player, String message) {
-		PacketPlayOutChat packet = new PacketPlayOutChat(IChatBaseComponent.ChatSerializer.a("{\"text\":\"" + message + "\",\"color\":\"white\"}"), ChatMessageType.GAME_INFO);
-		((CraftPlayer) player).getHandle().playerConnection.sendPacket(packet);
 	}
 
 	public PlayerData storePlayerData(Player player) {
