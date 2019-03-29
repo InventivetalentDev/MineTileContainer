@@ -1,0 +1,15 @@
+name: MineTileContainer
+main: org.inventivetalent.minetile.container.ContainerPlugin
+version: ${project.version}
+author: inventivetalent
+load: STARTUP
+api-version: 1.13
+
+commands:
+  locationinfo:
+    aliases: [locinfo]
+  pauseteleport:
+    aliases: [pausetp]
+  globalteleport:
+    aliases: [globaltp, gtp]
+    usage: /<command> <x> <y> <z>

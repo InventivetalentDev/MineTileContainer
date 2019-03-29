@@ -1,0 +1,27 @@
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password: "admin123"
+
+server:
+  host: 127.0.0.1
+
+center:
+  x: 0
+  z: 0
+
+tile:
+  x: 0
+  z: 0
+
+protection:
+  blocks:
+    place: true   # Disable block placing
+    break: true   # Disable block breaking
+    fade: true    # Disable block fading (snow/ice melting, fire burning etc.)
+    ignite: true  # Disable block ignition
+    burn: true    # Disable block burning
+    grow: true    # Disable block growing
+    decay: true   # Disable leaves decay
+    sponge: true  # Disable sponge absorbtion
+    piston: true  # Disable Pistons
