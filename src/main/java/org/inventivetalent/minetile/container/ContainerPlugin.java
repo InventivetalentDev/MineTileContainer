@@ -35,6 +35,9 @@ import java.io.IOException;
 import java.util.*;
 import java.util.logging.Level;
 
+import static org.inventivetalent.minetile.CoordinateConverter.globalToLocal;
+import static org.inventivetalent.minetile.CoordinateConverter.localToGlobal;
+
 public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessageListener {
 
 	static int TELEPORT_TIMEOUT = 80;
@@ -289,9 +292,8 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 			PlayerLocation position = positionMap.get(event.getPlayer().getUniqueId());
 			System.out.println("TP To " + position);
 			if (position != null) {
-				// subtract here as well, so we're spitting out the player on the "opposite" side instead of the same location shifted over
-				double localX = position.x - (tileData.x * tileSize * 2 * 16) + worldCenter.getX();
-				double localZ = position.z - (tileData.z * tileSize * 2 * 16) + worldCenter.getZ();
+				double localX = globalToLocal(position.x, tileData.x, tileSize, worldCenter.getX());
+				double localZ = globalToLocal(position.z, tileData.z, tileSize, worldCenter.getZ());
 				Location loc = new Location(event.getPlayer().getWorld(), localX, position.y, localZ, position.yaw, position.pitch);
 				System.out.println(loc);
 
@@ -359,8 +361,8 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 			}
 		}
 
-		double globalX = event.getPlayer().getLocation().getX() - worldCenter.getX() + (tileData.x * tileSize * 2 * 16);
-		double globalZ = event.getPlayer().getLocation().getZ() - worldCenter.getZ() + (tileData.z * tileSize * 2 * 16);
+		double globalX = localToGlobal(event.getTo().getX(), tileData.x, tileSize, worldCenter.getX());
+		double globalZ = localToGlobal(event.getTo().getZ(), tileData.z, tileSize, worldCenter.getZ());
 
 		// TODO: maybe support Y-Direction at some point
 
@@ -382,8 +384,8 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 			Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
 				teleportTopic.publish(new TeleportRequest(event.getPlayer().getUniqueId(), serverData.serverId, (int) globalX / 16, (int) event.getTo().getY() / 16, (int) globalZ / 16));
 
-				double gX = event.getPlayer().getLocation().getX() - worldCenter.getX() + (tileData.x * tileSize * 2 * 16);
-				double gZ = event.getPlayer().getLocation().getZ() - worldCenter.getZ() + (tileData.z * tileSize * 2 * 16);
+				double gX = localToGlobal(event.getPlayer().getLocation().getX(), tileData.x, tileSize, worldCenter.getX());
+				double gZ = localToGlobal(event.getPlayer().getLocation().getZ(), tileData.z, tileSize, worldCenter.getZ());
 				positionMap.put(event.getPlayer().getUniqueId(), new PlayerLocation(gX, event.getPlayer().getLocation().getY(), gZ, event.getPlayer().getLocation().getPitch(), event.getPlayer().getLocation().getYaw()));
 
 				PlayerData playerData = storePlayerData(event.getPlayer());
