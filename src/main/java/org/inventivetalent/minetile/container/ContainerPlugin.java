@@ -350,13 +350,13 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		if (locationDiff.getZ() > tileSizeBlocks) {
 			System.out.println(event.getPlayer().getName() + " leaving in +Z direction");
 			leaving = true;
-			if (locationDiff.getZ() > tileSizeBlocks + 32) {
+			if (locationDiff.getZ() > (tileSizeBlocks + 32)) {
 				outside = true;
 			}
 		} else if (locationDiff.getZ() < -tileSizeBlocks) {
 			System.out.println(event.getPlayer().getName() + " leaving in -Z direction");
 			leaving = true;
-			if (locationDiff.getZ() < -tileSizeBlocks + 32) {
+			if (locationDiff.getZ() < -(tileSizeBlocks + 32)) {
 				outside = true;
 			}
 		}
