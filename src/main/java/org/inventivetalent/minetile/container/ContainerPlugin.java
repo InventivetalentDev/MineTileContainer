@@ -266,9 +266,6 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		worldBorder.setCenter(worldCenter);
 		worldBorder.setSize(tileSize * 2 * 16 + 32 * 16);// Set world border to tile size + 16 chunks padding since the surrounding chunks are also included
 
-		RMap<UUID, TileData> tileMap = redisson.getMap("MineTile:Tiles");
-		tileMap.put(serverData.serverId, tileData);
-
 		positionMap = redisson.getMap("MineTile:Positions");
 		playerDataMap = redisson.getMap("MineTile:PlayerData");
 		teleportTopic = redisson.getTopic("MineTile:Teleports");
@@ -278,6 +275,9 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 
 	public void discoverServer() {
 		if (!worldLoaded) { return; }
+
+		RMap<UUID, TileData> tileMap = redisson.getMap("MineTile:Tiles");
+		tileMap.put(serverData.serverId, tileData);
 
 		RTopic serverTopic = redisson.getTopic("MineTile:ServerDiscovery");
 		System.out.println(serverData);
