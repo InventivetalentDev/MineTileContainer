@@ -65,6 +65,14 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 	public boolean disablePiston   = true;
 	public boolean disableRedstone = true;
 
+	public boolean disableEntitySpawn       = true;
+	public boolean disableEntityDamage      = true;
+	public boolean disableEntityDeath       = true;
+	public boolean disableEntityChangeBlock = true;
+
+	public boolean forceWeather = true;
+	public boolean weatherState = false;// false for clear, true for rain
+
 	World              defaultWorld;
 	Map<UUID, Integer> teleportTimeout = new HashMap<>();
 	int                timeoutCounter  = 0;
@@ -141,7 +149,14 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		disableDecay = config.getBoolean("protection.blocks.decay", true);
 		disableSponge = config.getBoolean("protection.blocks.sponge", true);
 		disablePiston = config.getBoolean("protection.blocks.piston", true);
-		disableRedstone = config.getBoolean("protection.blocks.redstone", true);
+
+		disableEntitySpawn = config.getBoolean("protection.entities.spawn", true);
+		disableEntityDamage = config.getBoolean("protection.entities.damage", true);
+		disableEntityChangeBlock = config.getBoolean("protection.entities.changeBlock", true);
+
+		String weatherString = config.getString("protection.weather.force", "clear");
+		weatherState = "rain".equalsIgnoreCase(weatherString);
+		forceWeather = !"false".equalsIgnoreCase(weatherString);
 
 		RTopic controlTopic = redisson.getTopic("MineTile:ServerControl");
 		controlTopic.addListener(ControlRequest.class, (channel, controlRequest) -> {

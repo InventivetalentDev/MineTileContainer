@@ -25,3 +25,9 @@ protection:
     decay: true   # Disable leaves decay
     sponge: true  # Disable sponge absorbtion
     piston: true  # Disable Pistons
+  entities:
+    spawn: true   # Disable entity spawning
+    damage: true  # Disable entity damage
+    changeBlock: true #Disable entities changing blocks
+  weather:
+    force: clear  # Weather to force (clear, rain, or false to disable)

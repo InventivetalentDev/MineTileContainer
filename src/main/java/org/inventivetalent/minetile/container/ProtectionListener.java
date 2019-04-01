@@ -4,6 +4,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.*;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntitySpawnEvent;
+import org.bukkit.event.weather.WeatherChangeEvent;
 
 public class ProtectionListener implements Listener {
 
@@ -49,6 +53,7 @@ public class ProtectionListener implements Listener {
 			event.setCancelled(true);
 		}
 	}
+
 	@EventHandler(priority = EventPriority.HIGH)
 	public void on(BlockGrowEvent event) {
 		if (plugin.disableGrow) {
@@ -84,8 +89,39 @@ public class ProtectionListener implements Listener {
 		}
 	}
 
+	/// Entities
+
+	@EventHandler(priority = EventPriority.HIGH)
+	public void on(EntitySpawnEvent event) {
+		if (plugin.disableEntitySpawn) {
+			event.setCancelled(true);
+		}
+	}
+
+	@EventHandler(priority = EventPriority.HIGH)
+	public void on(EntityDamageEvent event) {
+		if (plugin.disableEntityDamage) {
+			event.setCancelled(true);
+		}
+	}
+
+	@EventHandler(priority = EventPriority.HIGH)
+	public void on(EntityChangeBlockEvent event) {
+		if (plugin.disableEntityChangeBlock) {
+			event.setCancelled(true);
+		}
+	}
 
 
-
+	//// Weather
+	
+	@EventHandler(priority = EventPriority.HIGH)
+	public void on(WeatherChangeEvent event) {
+		if (plugin.forceWeather) {
+			if (event.toWeatherState() != plugin.weatherState) {
+				event.setCancelled(true);
+			}
+		}
+	}
 
 }
