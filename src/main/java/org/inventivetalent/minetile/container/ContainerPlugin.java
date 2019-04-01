@@ -382,7 +382,7 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 			teleportTimeout.put(event.getPlayer().getUniqueId(), TELEPORT_TIMEOUT);
 
 			Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
-				teleportTopic.publish(new TeleportRequest(event.getPlayer().getUniqueId(), serverData.serverId, (int) globalX / 16, (int) event.getTo().getY() / 16, (int) globalZ / 16));
+				teleportTopic.publish(new TeleportRequest(event.getPlayer().getUniqueId(), serverData.serverId, globalX / 16, event.getTo().getY() / 16, globalZ / 16));
 
 				double gX = localToGlobal(event.getPlayer().getLocation().getX(), tileData.x, tileSize, worldCenter.getX());
 				double gZ = localToGlobal(event.getPlayer().getLocation().getZ(), tileData.z, tileSize, worldCenter.getZ());
