@@ -232,7 +232,7 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 					double y = Double.parseDouble(args[1]);
 					double z = Double.parseDouble(args[2]);
 					positionMap.put(uuid, new PlayerLocation(x, y, z, 0, 0));
-					teleportTopic.publish(new TeleportRequest(uuid, serverData.serverId, (int) x / 16, (int) y / 16, (int) z / 16));
+					teleportTopic.publish(new TeleportRequest(uuid, serverData.serverId, x / 16, y / 16, z / 16));
 
 					sender.sendMessage("Teleport queued");
 				}

@@ -114,7 +114,7 @@ public class ProtectionListener implements Listener {
 
 
 	//// Weather
-	
+
 	@EventHandler(priority = EventPriority.HIGH)
 	public void on(WeatherChangeEvent event) {
 		if (plugin.forceWeather) {
