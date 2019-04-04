@@ -23,7 +23,9 @@ import org.bukkit.util.io.BukkitObjectInputStream;
 import org.bukkit.util.io.BukkitObjectOutputStream;
 import org.inventivetalent.minetile.*;
 import org.redisson.Redisson;
+import org.redisson.api.RBucket;
 import org.redisson.api.RMap;
+import org.redisson.api.RSet;
 import org.redisson.api.RTopic;
 import org.redisson.config.Config;
 import org.redisson.config.SingleServerConfig;
@@ -81,6 +83,10 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 	RMap<UUID, PlayerLocation> positionMap;
 	RMap<UUID, PlayerData>     playerDataMap;
 	RTopic                     teleportTopic;
+	RSet<CustomTeleport>       customTeleportSet;
+	RBucket<WorldEdge>         worldEdgeBucket;
+
+	WorldEdge worldEdge;
 
 	@Override
 	public void onEnable() {
@@ -284,6 +290,10 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		positionMap = redisson.getMap("MineTile:Positions");
 		playerDataMap = redisson.getMap("MineTile:PlayerData");
 		teleportTopic = redisson.getTopic("MineTile:Teleports");
+		customTeleportSet = redisson.getSet("MineTile:CustomTeleports");
+		worldEdgeBucket = redisson.getBucket("MineTile:WorldEdge");
+
+		worldEdge = worldEdgeBucket.get();
 
 		discoverServer();
 	}
@@ -381,14 +391,25 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 
 		// TODO: maybe support Y-Direction at some point
 
+		if (customTeleportSet.size() > 0) {
+			for (CustomTeleport tp : customTeleportSet) {
+				if (tp.applies((int) globalX, (int) globalZ)) {
+					if (tp.action.hasX) { globalX = tp.action.coordinateX; }
+					if (tp.action.hasZ) { globalZ = tp.action.coordinateZ; }
+				}
+			}
+		}
+
 		if (outside && timeoutCounter % 10 == 0) {
 			event.getPlayer().sendMessage("§cUh oh! Looks like you're somehow outside of the playable area! Attempting to get you back...");
 		}
 
 		if (leaving && timeoutCounter % 2 == 0) {
-			showWall(event.getPlayer());
+			showWall(event.getPlayer(), (int) globalX, (int) globalZ);
+			double finalGlobalX = globalX;
+			double finalGlobalZ = globalZ;
 			Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
-				positionMap.put(event.getPlayer().getUniqueId(), new PlayerLocation(globalX, event.getTo().getY(), globalZ, event.getTo().getPitch(), event.getTo().getYaw()));
+				positionMap.put(event.getPlayer().getUniqueId(), new PlayerLocation(finalGlobalX, event.getTo().getY(), finalGlobalZ, event.getTo().getPitch(), event.getTo().getYaw()));
 			});
 
 			//			System.out.println(teleportTimeout);
@@ -397,7 +418,7 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 			teleportTimeout.put(event.getPlayer().getUniqueId(), TELEPORT_TIMEOUT);
 
 			Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
-				teleportTopic.publish(new TeleportRequest(event.getPlayer().getUniqueId(), serverData.serverId, globalX / 16, event.getTo().getY() / 16, globalZ / 16));
+				teleportTopic.publish(new TeleportRequest(event.getPlayer().getUniqueId(), serverData.serverId, finalGlobalX / 16, event.getTo().getY() / 16, finalGlobalZ / 16));
 
 				double gX = localToGlobal(event.getPlayer().getLocation().getX(), tileData.x, tileSize, worldCenter.getX());
 				double gZ = localToGlobal(event.getPlayer().getLocation().getZ(), tileData.z, tileSize, worldCenter.getZ());
@@ -411,10 +432,11 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		}
 	}
 
-	public void showWall(Player player) {
+	public void showWall(Player player, int globalX, int globalZ) {
 		//		System.out.println(tileSizeBlocks + 16);
 
 		BlockData glassBlockData = getServer().createBlockData(Material.RED_STAINED_GLASS);
+		BlockData barrierBlockData = getServer().createBlockData(Material.BARRIER);
 		for (int x = -8; x < 8; x++) {
 			for (int z = -8; z < 8; z++) {
 				for (int y = -8; y < 8; y++) {
@@ -422,10 +444,34 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 					int aZ = z + player.getLocation().getBlockZ();
 					int aY = y + player.getLocation().getBlockY();
 
-					if (aX - worldCenter.getBlockX() == -(tileSizeBlocks + 14) || aX - worldCenter.getBlockX() == (tileSizeBlocks + 14) || aZ - worldCenter.getBlockZ() == -(tileSizeBlocks + 14) || aZ - worldCenter.getBlockZ() == (tileSizeBlocks + 14)) {
+					int xDiff = aX - worldCenter.getBlockX();
+					int zDiff = aZ - worldCenter.getBlockZ();
+
+					int threshold = tileSizeBlocks + 14;
+					if ((xDiff == -threshold ||
+							xDiff == threshold ||
+							zDiff == -threshold ||
+							zDiff == threshold) ||
+							(x == worldEdge.east || x == worldEdge.west ||
+									y == worldEdge.north || x == worldEdge.south)) {
 						Location location = new Location(player.getWorld(), aX, aY, aZ);
 						if (player.getWorld().getBlockAt(location).getType() == Material.AIR) {
-							player.sendBlockChange(location, glassBlockData);
+							Bukkit.getScheduler().runTaskLater(this, () -> {
+								player.sendBlockChange(location, glassBlockData);
+							}, Math.abs(x) + Math.abs(z) + Math.abs(y));
+						}
+					}
+					if (xDiff < -threshold ||
+							xDiff > threshold ||
+							zDiff < -threshold ||
+							zDiff > threshold ||
+							(x > worldEdge.east || x < worldEdge.west ||
+									y > worldEdge.north || y < worldEdge.south)) {
+						Location location = new Location(player.getWorld(), aX, aY, aZ);
+						if (player.getWorld().getBlockAt(location).getType() == Material.AIR) {
+							Bukkit.getScheduler().runTaskLater(this, () -> {
+								player.sendBlockChange(location, barrierBlockData);
+							}, Math.abs(x) + Math.abs(z) + Math.abs(y) + 1);
 						}
 					}
 				}
