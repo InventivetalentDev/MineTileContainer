@@ -3,24 +3,18 @@ package org.inventivetalent.minetile.container;
 import com.google.common.io.ByteArrayDataInput;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
-import org.bukkit.*;
-import org.bukkit.block.data.BlockData;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.generator.ChunkGenerator;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
-import org.bukkit.util.io.BukkitObjectInputStream;
-import org.bukkit.util.io.BukkitObjectOutputStream;
 import org.inventivetalent.minetile.*;
 import org.redisson.Redisson;
 import org.redisson.api.RBucket;
@@ -29,16 +23,9 @@ import org.redisson.api.RSet;
 import org.redisson.api.RTopic;
 import org.redisson.config.Config;
 import org.redisson.config.SingleServerConfig;
-import org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.*;
 import java.util.logging.Level;
-
-import static org.inventivetalent.minetile.CoordinateConverter.globalToLocal;
-import static org.inventivetalent.minetile.CoordinateConverter.localToGlobal;
 
 public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessageListener {
 
@@ -56,20 +43,18 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 	public int     tileSizeBlocks = 256;
 	public boolean syncPlayerData = true;
 
-	public boolean disablePlace    = true;
-	public boolean disableBreak    = true;
-	public boolean disableFade     = true;
-	public boolean disableIgnite   = true;
-	public boolean disableBurn     = true;
-	public boolean disableGrow     = true;
-	public boolean disableDecay    = true;
-	public boolean disableSponge   = true;
-	public boolean disablePiston   = true;
-	public boolean disableRedstone = true;
+	public boolean disablePlace  = true;
+	public boolean disableBreak  = true;
+	public boolean disableFade   = true;
+	public boolean disableIgnite = true;
+	public boolean disableBurn   = true;
+	public boolean disableGrow   = true;
+	public boolean disableDecay  = true;
+	public boolean disableSponge = true;
+	public boolean disablePiston = true;
 
 	public boolean disableEntitySpawn       = true;
 	public boolean disableEntityDamage      = true;
-	public boolean disableEntityDeath       = true;
 	public boolean disableEntityChangeBlock = true;
 
 	public boolean forceWeather = true;
@@ -86,12 +71,15 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 	RSet<CustomTeleport>       customTeleportSet;
 	RBucket<WorldEdge>         worldEdgeBucket;
 
+	boolean   worldLoaded;
 	WorldEdge worldEdge;
 
 	@Override
 	public void onEnable() {
 		Bukkit.getPluginManager().registerEvents(this, this);
 		Bukkit.getPluginManager().registerEvents(new ProtectionListener(this), this);
+		Bukkit.getPluginManager().registerEvents(new WorldLoadListener(this), this);
+		Bukkit.getPluginManager().registerEvents(new PlayerListener(this), this);
 
 		getServer().getMessenger().registerOutgoingPluginChannel(this, "minetile:minetile");
 		getServer().getMessenger().registerIncomingPluginChannel(this, "minetile:minetile", this);
@@ -237,9 +225,8 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 					double x = Double.parseDouble(args[0]);
 					double y = Double.parseDouble(args[1]);
 					double z = Double.parseDouble(args[2]);
-					positionMap.put(uuid, new PlayerLocation(x, y, z, 0, 0));
-					teleportTopic.publish(new TeleportRequest(uuid, serverData.serverId, x / 16, y / 16, z / 16));
 
+					globalTeleport(uuid, x, y, z);
 					sender.sendMessage("Teleport queued");
 				}
 			}
@@ -257,45 +244,13 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		sender.sendMessage("Chunk File:     r" + (location.getChunk().getX() >> 5) + "." + (location.getChunk().getZ() >> 5) + ".mca");
 	}
 
-	boolean worldLoaded = false;
+	public void globalTeleport(UUID uuid, double x, double y, double z) {
+		globalTeleport(uuid, x, y, z, 0, 0);
+	}
 
-	@EventHandler
-	public void on(WorldLoadEvent event) {
-		if (worldLoaded) { return; }
-		worldLoaded = true;
-
-		defaultWorld = Bukkit.getWorlds().get(0);
-		getLogger().info("Using " + defaultWorld.getName() + " as default world");
-
-		int centerX = config.getInt("center.x", 0);
-		int centerZ = config.getInt("center.z", 0);
-
-		/// Tile Data
-		int tileX = config.getInt("tile.x", 0);
-		int tileZ = config.getInt("tile.z", 0);
-
-		getLogger().info("================================================");
-		getLogger().info("= ");
-		getLogger().info("=  MineTile Container @ " + tileX + "  " + tileZ);
-		getLogger().info("= ");
-		getLogger().info("================================================");
-
-		tileData = new TileData(tileX, tileZ, 0);
-		worldCenter = new Location(defaultWorld, centerX, 0, centerZ);
-
-		WorldBorder worldBorder = defaultWorld.getWorldBorder();
-		worldBorder.setCenter(worldCenter);
-		worldBorder.setSize(tileSize * 2 * 16 + 32 * 16);// Set world border to tile size + 16 chunks padding since the surrounding chunks are also included
-
-		positionMap = redisson.getMap("MineTile:Positions");
-		playerDataMap = redisson.getMap("MineTile:PlayerData");
-		teleportTopic = redisson.getTopic("MineTile:Teleports");
-		customTeleportSet = redisson.getSet("MineTile:CustomTeleports");
-		worldEdgeBucket = redisson.getBucket("MineTile:WorldEdge");
-
-		worldEdge = worldEdgeBucket.get();
-
-		discoverServer();
+	public void globalTeleport(UUID uuid, double x, double y, double z, float yaw, float pitch) {
+		positionMap.put(uuid, new PlayerLocation(x, y, z, pitch, yaw));
+		teleportTopic.publish(new TeleportRequest(uuid, serverData.serverId, x / 16, y / 16, z / 16));
 	}
 
 	public void discoverServer() {
@@ -307,286 +262,6 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		RTopic serverTopic = redisson.getTopic("MineTile:ServerDiscovery");
 		System.out.println(serverData);
 		serverTopic.publish(serverData);
-	}
-
-	@EventHandler
-	public void on(PlayerJoinEvent event) {
-		teleportTimeout.put(event.getPlayer().getUniqueId(), TELEPORT_TIMEOUT);
-
-		Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
-			PlayerLocation position = positionMap.get(event.getPlayer().getUniqueId());
-			System.out.println("TP To " + position);
-			if (position != null) {
-				double localX = globalToLocal(position.x, tileData.x, tileSize, worldCenter.getX());
-				double localZ = globalToLocal(position.z, tileData.z, tileSize, worldCenter.getZ());
-				Location loc = new Location(event.getPlayer().getWorld(), localX, position.y, localZ, position.yaw, position.pitch);
-				System.out.println(loc);
-
-				Bukkit.getScheduler().runTask(ContainerPlugin.this, () -> {
-					event.getPlayer().teleport(loc);
-				});
-			}
-
-			PlayerData data = playerDataMap.get(event.getPlayer().getUniqueId());
-			if (data != null) {
-				Bukkit.getScheduler().runTask(ContainerPlugin.this, () -> {
-					restorePlayerData(event.getPlayer(), data);
-				});
-			}
-		});
-	}
-
-	public Location convertLocation(World world, PlayerLocation position) {
-		return new Location(world, position.x, position.y, position.z, position.yaw, position.pitch);
-	}
-
-	public PlayerLocation convertLocation(Location location) {
-		return new PlayerLocation(location.getX(), location.getY(), location.getZ(), location.getPitch(), location.getYaw());
-	}
-
-	@EventHandler(priority = EventPriority.MONITOR,
-				  ignoreCancelled = true)
-	public void on(PlayerMoveEvent event) {
-		Location playerLocation = event.getPlayer().getLocation();
-
-		if (!worldCenter.getWorld().getUID().equals(playerLocation.getWorld().getUID())) {
-			return;
-		}
-
-		Location locationDiff = worldCenter.clone().subtract(playerLocation);
-
-		boolean leaving = false;
-		boolean outside = false;
-
-		if (locationDiff.getX() > tileSizeBlocks) {
-			System.out.println(event.getPlayer().getName() + " leaving in +X direction");
-			leaving = true;
-			if (locationDiff.getX() > (tileSizeBlocks + 32)) {
-				outside = true;
-			}
-		} else if (locationDiff.getX() < -tileSizeBlocks) {
-			System.out.println(event.getPlayer().getName() + " leaving in -X direction");
-			leaving = true;
-			if (locationDiff.getX() < -(tileSizeBlocks + 32)) {
-				outside = true;
-			}
-		}
-
-		if (locationDiff.getZ() > tileSizeBlocks) {
-			System.out.println(event.getPlayer().getName() + " leaving in +Z direction");
-			leaving = true;
-			if (locationDiff.getZ() > (tileSizeBlocks + 32)) {
-				outside = true;
-			}
-		} else if (locationDiff.getZ() < -tileSizeBlocks) {
-			System.out.println(event.getPlayer().getName() + " leaving in -Z direction");
-			leaving = true;
-			if (locationDiff.getZ() < -(tileSizeBlocks + 32)) {
-				outside = true;
-			}
-		}
-
-		double globalX = localToGlobal(event.getTo().getX(), tileData.x, tileSize, worldCenter.getX());
-		double globalZ = localToGlobal(event.getTo().getZ(), tileData.z, tileSize, worldCenter.getZ());
-
-		// TODO: maybe support Y-Direction at some point
-
-		if (customTeleportSet.size() > 0) {
-			for (CustomTeleport tp : customTeleportSet) {
-				if (tp.applies((int) globalX, (int) globalZ)) {
-					if (tp.action.hasX) { globalX = tp.action.coordinateX; }
-					if (tp.action.hasZ) { globalZ = tp.action.coordinateZ; }
-				}
-			}
-		}
-
-		if (outside && timeoutCounter % 10 == 0) {
-			event.getPlayer().sendMessage("§cUh oh! Looks like you're somehow outside of the playable area! Attempting to get you back...");
-		}
-
-		if (leaving && timeoutCounter % 2 == 0) {
-			showWall(event.getPlayer(), (int) globalX, (int) globalZ);
-			double finalGlobalX = globalX;
-			double finalGlobalZ = globalZ;
-			Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
-				positionMap.put(event.getPlayer().getUniqueId(), new PlayerLocation(finalGlobalX, event.getTo().getY(), finalGlobalZ, event.getTo().getPitch(), event.getTo().getYaw()));
-			});
-
-			//			System.out.println(teleportTimeout);
-
-			if (teleportTimeout.containsKey(event.getPlayer().getUniqueId())) { return; }
-			teleportTimeout.put(event.getPlayer().getUniqueId(), TELEPORT_TIMEOUT);
-
-			Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
-				teleportTopic.publish(new TeleportRequest(event.getPlayer().getUniqueId(), serverData.serverId, finalGlobalX / 16, event.getTo().getY() / 16, finalGlobalZ / 16));
-
-				double gX = localToGlobal(event.getPlayer().getLocation().getX(), tileData.x, tileSize, worldCenter.getX());
-				double gZ = localToGlobal(event.getPlayer().getLocation().getZ(), tileData.z, tileSize, worldCenter.getZ());
-				positionMap.put(event.getPlayer().getUniqueId(), new PlayerLocation(gX, event.getPlayer().getLocation().getY(), gZ, event.getPlayer().getLocation().getPitch(), event.getPlayer().getLocation().getYaw()));
-
-				PlayerData playerData = storePlayerData(event.getPlayer());
-				playerDataMap.put(event.getPlayer().getUniqueId(), playerData);
-			});
-		} else if (!leaving) {
-			teleportTimeout.remove(event.getPlayer().getUniqueId());
-		}
-	}
-
-	public void showWall(Player player, int globalX, int globalZ) {
-		//		System.out.println(tileSizeBlocks + 16);
-
-		BlockData glassBlockData = getServer().createBlockData(Material.RED_STAINED_GLASS);
-		BlockData barrierBlockData = getServer().createBlockData(Material.BARRIER);
-		for (int x = -8; x < 8; x++) {
-			for (int z = -8; z < 8; z++) {
-				for (int y = -8; y < 8; y++) {
-					int aX = x + player.getLocation().getBlockX();
-					int aZ = z + player.getLocation().getBlockZ();
-					int aY = y + player.getLocation().getBlockY();
-
-					int xDiff = aX - worldCenter.getBlockX();
-					int zDiff = aZ - worldCenter.getBlockZ();
-
-					int threshold = tileSizeBlocks + 14;
-					if ((xDiff == -threshold ||
-							xDiff == threshold ||
-							zDiff == -threshold ||
-							zDiff == threshold) ||
-							(x == worldEdge.east || x == worldEdge.west ||
-									y == worldEdge.north || x == worldEdge.south)) {
-						Location location = new Location(player.getWorld(), aX, aY, aZ);
-						if (player.getWorld().getBlockAt(location).getType() == Material.AIR) {
-							Bukkit.getScheduler().runTaskLater(this, () -> {
-								player.sendBlockChange(location, glassBlockData);
-							}, Math.abs(x) + Math.abs(z) + Math.abs(y));
-						}
-					}
-					if (xDiff < -threshold ||
-							xDiff > threshold ||
-							zDiff < -threshold ||
-							zDiff > threshold ||
-							(x > worldEdge.east || x < worldEdge.west ||
-									y > worldEdge.north || y < worldEdge.south)) {
-						Location location = new Location(player.getWorld(), aX, aY, aZ);
-						if (player.getWorld().getBlockAt(location).getType() == Material.AIR) {
-							Bukkit.getScheduler().runTaskLater(this, () -> {
-								player.sendBlockChange(location, barrierBlockData);
-							}, Math.abs(x) + Math.abs(z) + Math.abs(y) + 1);
-						}
-					}
-				}
-			}
-		}
-	}
-
-	public PlayerData storePlayerData(Player player) {
-		//		//TODO: reflectify
-		//		CompoundTag compoundTag = new CompoundTag();
-		//		try {
-		//			Object nmsCompoundTag = compoundTag.toNMS();
-		//			((CraftPlayer)player).getHandle().b((NBTTagCompound) nmsCompoundTag);
-		//			compoundTag = compoundTag.fromNMS(nmsCompoundTag);
-		//		} catch (ReflectiveOperationException e) {
-		//			e.printStackTrace();
-		//		}
-
-		PlayerData playerData = new PlayerData();
-		playerData.allowFlight = player.getAllowFlight();
-		playerData.flying = player.isFlying();
-		playerData.flySpeed = player.getFlySpeed();
-		playerData.walkSpeed = player.getWalkSpeed();
-		playerData.exhaustion = player.getExhaustion();
-		playerData.exp = player.getExp();
-		playerData.level = player.getLevel();
-		playerData.totalExperience = player.getTotalExperience();
-		playerData.saturation = player.getSaturation();
-		playerData.foodLevel = player.getFoodLevel();
-
-		ItemStack[] items = player.getInventory().getContents();
-		try {
-			playerData.inventory = itemsToBase64(items);
-		} catch (IOException e) {
-			getLogger().log(Level.WARNING, "Failed to convert player inventory to Base64", e);
-		}
-
-		playerData.remainingAir = player.getRemainingAir();
-		playerData.maximumAir = player.getMaximumAir();
-		playerData.gliding = player.isGliding();
-		playerData.swimming = player.isSwimming();
-
-		playerData.health = player.getHealth();
-
-		playerData.fallDistance = player.getFallDistance();
-		playerData.glowing = player.isGlowing();
-		playerData.invulnerable = player.isInvulnerable();
-
-		return playerData;
-	}
-
-	public void restorePlayerData(Player player, PlayerData playerData) {
-		//		//TODO: reflectify
-		//		CompoundTag compoundTag = playerData.nbt;
-		//		try {
-		//			Object nmsCompoundTag = compoundTag.toNMS();
-		//			((CraftPlayer)player).getHandle().a((NBTTagCompound) nmsCompoundTag);
-		//		} catch (ReflectiveOperationException e) {
-		//			e.printStackTrace();
-		//		}
-
-		player.setAllowFlight(playerData.allowFlight);
-		player.setFlying(playerData.flying);
-		player.setFlySpeed(playerData.flySpeed);
-		player.setWalkSpeed(playerData.walkSpeed);
-		player.setExhaustion(playerData.exhaustion);
-		player.setExp(playerData.exp);
-		player.setLevel(playerData.level);
-		player.setTotalExperience(playerData.totalExperience);
-		player.setSaturation(playerData.saturation);
-		player.setFoodLevel(playerData.foodLevel);
-
-		try {
-			ItemStack[] items = itemsFromBase64(playerData.inventory);
-			player.getInventory().setContents(items);
-		} catch (IOException | ClassNotFoundException e) {
-			getLogger().log(Level.WARNING, "Failed to load player items from Base64", e);
-		}
-
-		player.setRemainingAir(playerData.remainingAir);
-		player.setMaximumAir(playerData.maximumAir);
-		player.setGliding(playerData.gliding);
-		player.setSwimming(playerData.swimming);
-
-		player.setHealth(playerData.health);
-
-		player.setFallDistance(playerData.fallDistance);
-		player.setGlowing(playerData.glowing);
-		player.setInvulnerable(playerData.invulnerable);
-	}
-
-	public String itemsToBase64(ItemStack[] itemStacks) throws IOException {
-		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-		BukkitObjectOutputStream dataOutput = new BukkitObjectOutputStream(outputStream);
-
-		dataOutput.writeInt(itemStacks.length);
-		for (ItemStack stack : itemStacks) {
-			dataOutput.writeObject(stack);
-		}
-		String string = new String(Base64Coder.encode(outputStream.toByteArray()));
-		dataOutput.close();
-		return string;
-	}
-
-	public ItemStack[] itemsFromBase64(String base64) throws IOException, ClassNotFoundException {
-		ByteArrayInputStream inputStream = new ByteArrayInputStream(Base64Coder.decode(base64));
-		BukkitObjectInputStream dataInput = new BukkitObjectInputStream(inputStream);
-		ItemStack[] stacks = new ItemStack[dataInput.readInt()];
-
-		for (int i = 0; i < stacks.length; i++) {
-			stacks[i] = (ItemStack) dataInput.readObject();
-		}
-		dataInput.close();
-
-		return stacks;
 	}
 
 	@Override
