@@ -78,8 +78,6 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 	public void onEnable() {
 		Bukkit.getPluginManager().registerEvents(this, this);
 		Bukkit.getPluginManager().registerEvents(new ProtectionListener(this), this);
-		Bukkit.getPluginManager().registerEvents(new WorldLoadListener(this), this);
-		Bukkit.getPluginManager().registerEvents(new PlayerListener(this), this);
 
 		getServer().getMessenger().registerOutgoingPluginChannel(this, "minetile:minetile");
 		getServer().getMessenger().registerIncomingPluginChannel(this, "minetile:minetile", this);
@@ -163,6 +161,9 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 				discoverServer();
 			}
 		});
+
+		Bukkit.getPluginManager().registerEvents(new WorldLoadListener(this), this);
+		Bukkit.getPluginManager().registerEvents(new PlayerListener(this), this);
 
 		Bukkit.getScheduler().runTaskTimer(this, () -> {
 			Iterator<Map.Entry<UUID, Integer>> iterator = teleportTimeout.entrySet().iterator();
