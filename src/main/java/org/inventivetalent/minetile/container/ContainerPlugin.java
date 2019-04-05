@@ -72,7 +72,7 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 	RBucket<WorldEdge>         worldEdgeBucket;
 
 	boolean   worldLoaded;
-	WorldEdge worldEdge;
+	WorldEdge worldEdge = new WorldEdge();
 
 	@Override
 	public void onEnable() {
