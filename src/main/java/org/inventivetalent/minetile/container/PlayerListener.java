@@ -60,7 +60,7 @@ public class PlayerListener implements Listener {
 			if (position != null) {
 				double localX = globalToLocal(position.x, plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX());
 				double localZ = globalToLocal(position.z, plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ());
-				Location loc = new Location(event.getPlayer().getWorld(), localX, position.y, localZ, position.yaw, position.pitch);
+				Location loc = new Location(plugin.defaultWorld, localX, position.y, localZ, position.yaw, position.pitch);
 				System.out.println(loc);
 
 				Bukkit.getScheduler().runTask(plugin, () -> {
