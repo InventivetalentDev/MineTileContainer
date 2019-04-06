@@ -179,8 +179,8 @@ public class PlayerListener implements Listener {
 
 		BlockData glassBlockData = Bukkit.getServer().createBlockData(Material.RED_STAINED_GLASS);
 		BlockData barrierBlockData = Bukkit.getServer().createBlockData(Material.BARRIER);
-		for (int x = -8; x < 8; x++) {
-			for (int z = -8; z < 8; z++) {
+		for (int x = -16; x < 16; x++) {
+			for (int z = -16; z < 16; z++) {
 				for (int y = -8; y < 8; y++) {
 					int aX = x + player.getLocation().getBlockX();
 					int aZ = z + player.getLocation().getBlockZ();
