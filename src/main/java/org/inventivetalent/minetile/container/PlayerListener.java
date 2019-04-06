@@ -51,8 +51,7 @@ public class PlayerListener implements Listener {
 	public void on(PlayerJoinEvent event) {
 		plugin.teleportTimeout.put(event.getPlayer().getUniqueId(), ContainerPlugin.TELEPORT_TIMEOUT);
 
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-			PlayerLocation position = positionMap.get(event.getPlayer().getUniqueId());
+		positionMap.getAsync(event.getPlayer().getUniqueId()).thenAccept(position -> {
 			System.out.println("TP To " + position);
 			if (position != null) {
 				double localX = globalToLocal(position.x, plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX());
@@ -69,12 +68,13 @@ public class PlayerListener implements Listener {
 				});
 			}
 
-			PlayerData data = playerDataMap.get(event.getPlayer().getUniqueId());
-			if (data != null) {
-				Bukkit.getScheduler().runTask(plugin, () -> {
-					restorePlayerData(event.getPlayer(), data);
-				});
-			}
+			playerDataMap.getAsync(event.getPlayer().getUniqueId()).thenAccept(data -> {
+				if (data != null) {
+					Bukkit.getScheduler().runTask(plugin, () -> {
+						restorePlayerData(event.getPlayer(), data);
+					});
+				}
+			});
 		});
 	}
 
@@ -138,11 +138,10 @@ public class PlayerListener implements Listener {
 		}
 
 		if (finalLeaving && plugin.timeoutCounter % 2 == 0) {
-			Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+			customTeleportSet.readAllAsync().thenAccept(customTeleports -> {
 				double globalX = localToGlobal(event.getTo().getX(), plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX());
 				double globalZ = localToGlobal(event.getTo().getZ(), plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ());
-
-				if (customTeleportSet.size() > 0) {
+				if (customTeleports.size() > 0) {
 					for (CustomTeleport tp : customTeleportSet) {
 						if (tp.applies((int) globalX, (int) globalZ)) {
 							if (tp.action.hasX) { globalX = tp.action.coordinateX; }
@@ -152,22 +151,23 @@ public class PlayerListener implements Listener {
 				}
 
 				showWall(event.getPlayer(), (int) globalX, (int) globalZ);
-				positionMap.put(event.getPlayer().getUniqueId(), new PlayerLocation(globalX, event.getTo().getY(), globalZ, event.getTo().getPitch(), event.getTo().getYaw()));
+				positionMap.putAsync(event.getPlayer().getUniqueId(), new PlayerLocation(globalX, event.getTo().getY(), globalZ, event.getTo().getPitch(), event.getTo().getYaw()));
 
 				//			System.out.println(teleportTimeout);
 
 				if (plugin.teleportTimeout.containsKey(event.getPlayer().getUniqueId())) { return; }
 				plugin.teleportTimeout.put(event.getPlayer().getUniqueId(), ContainerPlugin.TELEPORT_TIMEOUT);
 
-				teleportTopic.publish(new TeleportRequest(event.getPlayer().getUniqueId(), plugin.serverData.serverId, globalX / 16, event.getTo().getY() / 16, globalZ / 16));
+				teleportTopic.publishAsync(new TeleportRequest(event.getPlayer().getUniqueId(), plugin.serverData.serverId, globalX / 16, event.getTo().getY() / 16, globalZ / 16));
 
 				double gX = localToGlobal(event.getPlayer().getLocation().getX(), plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX());
 				double gZ = localToGlobal(event.getPlayer().getLocation().getZ(), plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ());
-				positionMap.put(event.getPlayer().getUniqueId(), new PlayerLocation(gX, event.getPlayer().getLocation().getY(), gZ, event.getPlayer().getLocation().getPitch(), event.getPlayer().getLocation().getYaw()));
+				positionMap.putAsync(event.getPlayer().getUniqueId(), new PlayerLocation(gX, event.getPlayer().getLocation().getY(), gZ, event.getPlayer().getLocation().getPitch(), event.getPlayer().getLocation().getYaw()));
 
 				PlayerData playerData = storePlayerData(event.getPlayer());
-				playerDataMap.put(event.getPlayer().getUniqueId(), playerData);
+				playerDataMap.putAsync(event.getPlayer().getUniqueId(), playerData);
 			});
+
 		} else if (!finalLeaving) {
 			plugin.teleportTimeout.remove(event.getPlayer().getUniqueId());
 		}
@@ -176,47 +176,48 @@ public class PlayerListener implements Listener {
 	public void showWall(Player player, int globalX, int globalZ) {
 		//		System.out.println(tileSizeBlocks + 16);
 
-		BlockData glassBlockData = Bukkit.getServer().createBlockData(Material.RED_STAINED_GLASS);
-		BlockData barrierBlockData = Bukkit.getServer().createBlockData(Material.BARRIER);
-		for (int x = -16; x < 16; x++) {
-			for (int z = -16; z < 16; z++) {
-				for (int y = -8; y < 8; y++) {
-					int aX = x + player.getLocation().getBlockX();
-					int aZ = z + player.getLocation().getBlockZ();
-					int aY = y + player.getLocation().getBlockY();
+		final BlockData glassBlockData = Bukkit.getServer().createBlockData(Material.RED_STAINED_GLASS);
+		final BlockData barrierBlockData = Bukkit.getServer().createBlockData(Material.BARRIER);
+		for (int y = -8; y < 8; y++) {
+			int finalY = y;
+			Bukkit.getScheduler().runTaskLater(plugin, () -> {
+				for (int x = -16; x < 16; x++) {
+					for (int z = -16; z < 16; z++) {
+						int aX = x + player.getLocation().getBlockX();
+						int aZ = z + player.getLocation().getBlockZ();
+						int aY = finalY + player.getLocation().getBlockY();
 
-					int xDiff = aX - plugin.worldCenter.getBlockX();
-					int zDiff = aZ - plugin.worldCenter.getBlockZ();
+						int xDiff = aX - plugin.worldCenter.getBlockX();
+						int zDiff = aZ - plugin.worldCenter.getBlockZ();
 
-					int threshold = plugin.tileSizeBlocks + 14;
-					if ((xDiff == -threshold ||
-							xDiff == threshold ||
-							zDiff == -threshold ||
-							zDiff == threshold) ||
-							(x == plugin.worldEdge.east || x == plugin.worldEdge.west ||
-									y == plugin.worldEdge.north || x == plugin.worldEdge.south)) {
-						Location location = new Location(player.getWorld(), aX, aY, aZ);
-						if (player.getWorld().getBlockAt(location).getType() == Material.AIR) {
-							Bukkit.getScheduler().runTaskLater(plugin, () -> {
+						int threshold = plugin.tileSizeBlocks + 14;
+						if ((xDiff == -threshold ||
+								xDiff == threshold ||
+								zDiff == -threshold ||
+								zDiff == threshold) ||
+								(x == plugin.worldEdge.east || x == plugin.worldEdge.west ||
+										finalY == plugin.worldEdge.north || x == plugin.worldEdge.south)) {
+							Location location = new Location(player.getWorld(), aX, aY, aZ);
+							if (!player.getWorld().getBlockAt(location).getType().isSolid()) {
 								player.sendBlockChange(location, glassBlockData);
-							}, Math.abs(x) + Math.abs(z) + Math.abs(y));
+							}
 						}
-					}
-					if (xDiff < -threshold ||
-							xDiff > threshold ||
-							zDiff < -threshold ||
-							zDiff > threshold ||
-							(x > plugin.worldEdge.east || x < plugin.worldEdge.west ||
-									y > plugin.worldEdge.north || y < plugin.worldEdge.south)) {
-						Location location = new Location(player.getWorld(), aX, aY, aZ);
-						if (player.getWorld().getBlockAt(location).getType() == Material.AIR) {
-							Bukkit.getScheduler().runTaskLater(plugin, () -> {
-								player.sendBlockChange(location, barrierBlockData);
-							}, Math.abs(x) + Math.abs(z) + Math.abs(y) + 1);
-						}
+						//					if (xDiff < -threshold ||
+						//							xDiff > threshold ||
+						//							zDiff < -threshold ||
+						//							zDiff > threshold ||
+						//							(x > plugin.worldEdge.east || x < plugin.worldEdge.west ||
+						//									y > plugin.worldEdge.north || y < plugin.worldEdge.south)) {
+						//						Location location = new Location(player.getWorld(), aX, aY, aZ);
+						//						if (!player.getWorld().getBlockAt(location).getType().isSolid()) {
+						//							Bukkit.getScheduler().runTaskLater(plugin, () -> {
+						//								player.sendBlockChange(location, barrierBlockData);
+						//							}, Math.abs(x) + Math.abs(z) + Math.abs(y) + 1);
+						//						}
+						//					}
 					}
 				}
-			}
+			}, Math.abs(y));
 		}
 	}
 
