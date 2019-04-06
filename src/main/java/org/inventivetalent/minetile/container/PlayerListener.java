@@ -235,6 +235,8 @@ public class PlayerListener implements Listener {
 		playerData.saturation = player.getSaturation();
 		playerData.foodLevel = player.getFoodLevel();
 		playerData.gameMode = player.getGameMode().ordinal();
+		playerData.sprinting = player.isSprinting();
+		playerData.sneaking = player.isSneaking();
 
 		ItemStack[] items = player.getInventory().getContents();
 		try {
@@ -270,6 +272,8 @@ public class PlayerListener implements Listener {
 		player.setSaturation(playerData.saturation);
 		player.setFoodLevel(playerData.foodLevel);
 		player.setGameMode(GameMode.values()[playerData.gameMode]);
+		player.setSprinting(playerData.sprinting);
+		player.setSneaking(playerData.sneaking);
 
 		try {
 			ItemStack[] items = itemsFromBase64(playerData.inventory);
