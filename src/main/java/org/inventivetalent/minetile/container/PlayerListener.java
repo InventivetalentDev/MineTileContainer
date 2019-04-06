@@ -66,6 +66,10 @@ public class PlayerListener implements Listener {
 				Bukkit.getScheduler().runTask(plugin, () -> {
 					event.getPlayer().teleport(loc);
 				});
+			}else{
+				Bukkit.getScheduler().runTask(plugin, () -> {
+					event.getPlayer().teleport(new Location(plugin.defaultWorld,plugin.worldCenter.getBlockX(),plugin.defaultWorld.getHighestBlockYAt(plugin.worldCenter.getBlockX(),plugin.worldCenter.getBlockZ())+2,plugin.worldCenter.getBlockZ()));
+				});
 			}
 
 			PlayerData data = playerDataMap.get(event.getPlayer().getUniqueId());
