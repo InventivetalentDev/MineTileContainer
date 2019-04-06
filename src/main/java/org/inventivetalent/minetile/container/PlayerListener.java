@@ -181,8 +181,8 @@ public class PlayerListener implements Listener {
 		for (int y = -8; y < 8; y++) {
 			int finalY = y;
 			Bukkit.getScheduler().runTaskLater(plugin, () -> {
-				for (int x = -16; x < 16; x++) {
-					for (int z = -16; z < 16; z++) {
+				for (int x = -12; x < 12; x++) {
+					for (int z = -12; z < 12; z++) {
 						int aX = x + player.getLocation().getBlockX();
 						int aZ = z + player.getLocation().getBlockZ();
 						int aY = finalY + player.getLocation().getBlockY();
@@ -190,31 +190,18 @@ public class PlayerListener implements Listener {
 						int xDiff = aX - plugin.worldCenter.getBlockX();
 						int zDiff = aZ - plugin.worldCenter.getBlockZ();
 
-						int threshold = plugin.tileSizeBlocks + 14;
-						if ((xDiff == -threshold ||
-								xDiff == threshold ||
-								zDiff == -threshold ||
-								zDiff == threshold) ||
-								(x == plugin.worldEdge.east || x == plugin.worldEdge.west ||
-										finalY == plugin.worldEdge.north || x == plugin.worldEdge.south)) {
+						int threshold1 = plugin.tileSizeBlocks + 14;
+						if ((xDiff == -threshold1 ||
+								xDiff == threshold1 ||
+								zDiff == -threshold1 ||
+								zDiff == threshold1) ||
+								(x == plugin.worldEdge.east-2 || x == plugin.worldEdge.west-2 ||
+										x == plugin.worldEdge.north-2 || x == plugin.worldEdge.south+2)) {
 							Location location = new Location(player.getWorld(), aX, aY, aZ);
 							if (!player.getWorld().getBlockAt(location).getType().isSolid()) {
 								player.sendBlockChange(location, glassBlockData);
 							}
 						}
-						//					if (xDiff < -threshold ||
-						//							xDiff > threshold ||
-						//							zDiff < -threshold ||
-						//							zDiff > threshold ||
-						//							(x > plugin.worldEdge.east || x < plugin.worldEdge.west ||
-						//									y > plugin.worldEdge.north || y < plugin.worldEdge.south)) {
-						//						Location location = new Location(player.getWorld(), aX, aY, aZ);
-						//						if (!player.getWorld().getBlockAt(location).getType().isSolid()) {
-						//							Bukkit.getScheduler().runTaskLater(plugin, () -> {
-						//								player.sendBlockChange(location, barrierBlockData);
-						//							}, Math.abs(x) + Math.abs(z) + Math.abs(y) + 1);
-						//						}
-						//					}
 					}
 				}
 			}, Math.abs(y));
