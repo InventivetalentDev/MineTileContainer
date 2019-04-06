@@ -53,7 +53,7 @@
                                     <include>com.google.code.gson:gson**</include>
                                     <include>org.redisson:**</include>
                                     <include>org.slf4j:**</include>
-                                    <include>**:**</include>
+                                    <include>com.fasterxml.jackson**</include>
                                 </includes>
                             </artifactSet>
                         </configuration>

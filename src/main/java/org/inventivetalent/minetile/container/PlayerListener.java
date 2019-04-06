@@ -63,9 +63,9 @@ public class PlayerListener implements Listener {
 				Bukkit.getScheduler().runTask(plugin, () -> {
 					event.getPlayer().teleport(loc);
 				});
-			}else{
+			} else {
 				Bukkit.getScheduler().runTask(plugin, () -> {
-					event.getPlayer().teleport(new Location(plugin.defaultWorld,plugin.worldCenter.getBlockX(),plugin.defaultWorld.getHighestBlockYAt(plugin.worldCenter.getBlockX(),plugin.worldCenter.getBlockZ())+2,plugin.worldCenter.getBlockZ()));
+					event.getPlayer().teleport(new Location(plugin.defaultWorld, plugin.worldCenter.getBlockX(), plugin.defaultWorld.getHighestBlockYAt(plugin.worldCenter.getBlockX(), plugin.worldCenter.getBlockZ()) + 2, plugin.worldCenter.getBlockZ()));
 				});
 			}
 
@@ -128,39 +128,38 @@ public class PlayerListener implements Listener {
 			}
 		}
 
-		double globalX = localToGlobal(event.getTo().getX(), plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX());
-		double globalZ = localToGlobal(event.getTo().getZ(), plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ());
-
 		// TODO: maybe support Y-Direction at some point
 
-		if (customTeleportSet.size() > 0) {
-			for (CustomTeleport tp : customTeleportSet) {
-				if (tp.applies((int) globalX, (int) globalZ)) {
-					if (tp.action.hasX) { globalX = tp.action.coordinateX; }
-					if (tp.action.hasZ) { globalZ = tp.action.coordinateZ; }
-				}
-			}
-		}
+		boolean finalOutside = outside;
+		boolean finalLeaving = leaving;
 
-		if (outside && plugin.timeoutCounter % 10 == 0) {
+		if (finalOutside && plugin.timeoutCounter % 10 == 0) {
 			event.getPlayer().sendMessage("§cUh oh! Looks like you're somehow outside of the playable area! Attempting to get you back...");
 		}
 
-		if (leaving && plugin.timeoutCounter % 2 == 0) {
-			showWall(event.getPlayer(), (int) globalX, (int) globalZ);
-			double finalGlobalX = globalX;
-			double finalGlobalZ = globalZ;
+		if (finalLeaving && plugin.timeoutCounter % 2 == 0) {
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-				positionMap.put(event.getPlayer().getUniqueId(), new PlayerLocation(finalGlobalX, event.getTo().getY(), finalGlobalZ, event.getTo().getPitch(), event.getTo().getYaw()));
-			});
+				double globalX = localToGlobal(event.getTo().getX(), plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX());
+				double globalZ = localToGlobal(event.getTo().getZ(), plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ());
 
-			//			System.out.println(teleportTimeout);
+				if (customTeleportSet.size() > 0) {
+					for (CustomTeleport tp : customTeleportSet) {
+						if (tp.applies((int) globalX, (int) globalZ)) {
+							if (tp.action.hasX) { globalX = tp.action.coordinateX; }
+							if (tp.action.hasZ) { globalZ = tp.action.coordinateZ; }
+						}
+					}
+				}
 
-			if (plugin.teleportTimeout.containsKey(event.getPlayer().getUniqueId())) { return; }
-			plugin.teleportTimeout.put(event.getPlayer().getUniqueId(), ContainerPlugin.TELEPORT_TIMEOUT);
+				showWall(event.getPlayer(), (int) globalX, (int) globalZ);
+				positionMap.put(event.getPlayer().getUniqueId(), new PlayerLocation(globalX, event.getTo().getY(), globalZ, event.getTo().getPitch(), event.getTo().getYaw()));
 
-			Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-				teleportTopic.publish(new TeleportRequest(event.getPlayer().getUniqueId(), plugin.serverData.serverId, finalGlobalX / 16, event.getTo().getY() / 16, finalGlobalZ / 16));
+				//			System.out.println(teleportTimeout);
+
+				if (plugin.teleportTimeout.containsKey(event.getPlayer().getUniqueId())) { return; }
+				plugin.teleportTimeout.put(event.getPlayer().getUniqueId(), ContainerPlugin.TELEPORT_TIMEOUT);
+
+				teleportTopic.publish(new TeleportRequest(event.getPlayer().getUniqueId(), plugin.serverData.serverId, globalX / 16, event.getTo().getY() / 16, globalZ / 16));
 
 				double gX = localToGlobal(event.getPlayer().getLocation().getX(), plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX());
 				double gZ = localToGlobal(event.getPlayer().getLocation().getZ(), plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ());
@@ -169,7 +168,7 @@ public class PlayerListener implements Listener {
 				PlayerData playerData = storePlayerData(event.getPlayer());
 				playerDataMap.put(event.getPlayer().getUniqueId(), playerData);
 			});
-		} else if (!leaving) {
+		} else if (!finalLeaving) {
 			plugin.teleportTimeout.remove(event.getPlayer().getUniqueId());
 		}
 	}
