@@ -1,9 +1,6 @@
 package org.inventivetalent.minetile.container;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -237,6 +234,7 @@ public class PlayerListener implements Listener {
 		playerData.totalExperience = player.getTotalExperience();
 		playerData.saturation = player.getSaturation();
 		playerData.foodLevel = player.getFoodLevel();
+		playerData.gameMode = player.getGameMode().ordinal();
 
 		ItemStack[] items = player.getInventory().getContents();
 		try {
@@ -271,6 +269,7 @@ public class PlayerListener implements Listener {
 		player.setTotalExperience(playerData.totalExperience);
 		player.setSaturation(playerData.saturation);
 		player.setFoodLevel(playerData.foodLevel);
+		player.setGameMode(GameMode.values()[playerData.gameMode]);
 
 		try {
 			ItemStack[] items = itemsFromBase64(playerData.inventory);
