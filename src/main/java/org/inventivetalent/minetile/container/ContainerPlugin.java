@@ -56,6 +56,7 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 	public boolean disableEntitySpawn       = true;
 	public boolean disableEntityDamage      = true;
 	public boolean disableEntityChangeBlock = true;
+	public boolean disableEntityTarget = true;
 
 	public boolean forceWeather = true;
 	public boolean weatherState = false;// false for clear, true for rain
@@ -145,6 +146,7 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		disableEntitySpawn = config.getBoolean("protection.entities.spawn", true);
 		disableEntityDamage = config.getBoolean("protection.entities.damage", true);
 		disableEntityChangeBlock = config.getBoolean("protection.entities.changeBlock", true);
+		disableEntityTarget = config.getBoolean("protection.entities.target", true);
 
 		String weatherString = config.getString("protection.weather.force", "clear");
 		weatherState = "rain".equalsIgnoreCase(weatherString);

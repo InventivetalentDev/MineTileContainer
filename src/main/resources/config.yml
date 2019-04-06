@@ -29,5 +29,6 @@ protection:
     spawn: true   # Disable entity spawning
     damage: true  # Disable entity damage
     changeBlock: true #Disable entities changing blocks
+    target: true  # Disable entity's targeting
   weather:
     force: clear  # Weather to force (clear, rain, or false to disable)

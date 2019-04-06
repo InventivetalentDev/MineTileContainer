@@ -7,6 +7,7 @@ import org.bukkit.event.block.*;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntitySpawnEvent;
+import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.weather.WeatherChangeEvent;
 
 public class ProtectionListener implements Listener {
@@ -111,6 +112,15 @@ public class ProtectionListener implements Listener {
 			event.setCancelled(true);
 		}
 	}
+
+	@EventHandler(priority = EventPriority.HIGH)
+	public void on(EntityTargetEvent event) {
+		if (plugin.disableEntityTarget) {
+			event.setCancelled(true);
+		}
+	}
+
+
 
 
 	//// Weather
