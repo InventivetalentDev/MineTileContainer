@@ -281,6 +281,13 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		teleportTopic.publish(new TeleportRequest(uuid, serverData.serverId, x / 16, y / 16, z / 16));
 	}
 
+	public PlayerLocation getGlobalLocation(Player player) {
+		double globalX = localToGlobal(player.getLocation().getX(), tileData.x, tileSize, worldCenter.getX());
+		double globalZ = localToGlobal(player.getLocation().getZ(), tileData.z, tileSize, worldCenter.getZ());
+
+		return new PlayerLocation(globalX, player.getLocation().getY(), globalZ, player.getLocation().getPitch(), player.getLocation().getYaw());
+	}
+
 	public void discoverServer() {
 		if (!worldLoaded) { return; }
 
@@ -294,29 +301,39 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 
 	@Override
 	public void onPluginMessageReceived(String channel, Player player, byte[] bytes) {
-		if (!"MineTile".equals(channel)) { return; }
+		if (!"minetile:minetile".equals(channel)) { return; }
 		ByteArrayDataInput in = ByteStreams.newDataInput(bytes);
 		String subChannel = in.readUTF();
-		byte hasData = in.readByte();
-		ByteArraySerializable<?> data = null;
-		if (hasData > 0) {
-			String dataClass = in.readUTF();
-			try {
-				data = (ByteArraySerializable<?>) Class.forName(dataClass).newInstance();
-			} catch (ReflectiveOperationException e) {
-				getLogger().log(Level.SEVERE, "Failed to instantiate data class " + dataClass, e);
-				return;
-			}
-			data.readFromByteArray(in);
-		}
+		//
+		//		if ("LocationRequest".equals(subChannel)) {
+		//			ByteArrayDataOutput out = ByteStreams.newDataOutput();
+		//			out.writeUTF("PlayerLocation");
+		//			out.writeDouble(player.getLocation().getX());
+		//			out.writeDouble(player.getLocation().getY());
+		//			out.writeDouble(player.getLocation().getZ());
+		//			player.sendPluginMessage(this, "minetile:minetile", out.toByteArray());
+		//		}
 
-		handleBungeecordData(subChannel, player, data);
+		//		ByteArrayDataInput in = ByteStreams.newDataInput(bytes);
+		//		String subChannel = in.readUTF();
+		//		byte hasData = in.readByte();
+		//		ByteArraySerializable<?> data = null;
+		//		if (hasData > 0) {
+		//			String dataClass = in.readUTF();
+		//			try {
+		//				data = (ByteArraySerializable<?>) Class.forName(dataClass).newInstance();
+		//			} catch (ReflectiveOperationException e) {
+		//				getLogger().log(Level.SEVERE, "Failed to instantiate data class " + dataClass, e);
+		//				return;
+		//			}
+		//			data.readFromByteArray(in);
+		//		}
+		//
+		//		handleBungeecordData(subChannel, player, data);
 	}
 
 	public void handleBungeecordData(String subChannel, Player receiver, ByteArraySerializable data) {
-		if ("TileDataRequest".equals(subChannel)) {
-			sendToBungeecord("TileData", this.tileData);
-		}
+
 	}
 
 	public void sendToBungeecord(String subChannel, ByteArraySerializable data) {
