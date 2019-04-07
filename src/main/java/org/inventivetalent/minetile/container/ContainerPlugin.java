@@ -27,6 +27,9 @@ import org.redisson.config.SingleServerConfig;
 import java.util.*;
 import java.util.logging.Level;
 
+import static org.inventivetalent.minetile.CoordinateConverter.globalToLocal;
+import static org.inventivetalent.minetile.CoordinateConverter.localToGlobal;
+
 public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessageListener {
 
 	static int TELEPORT_TIMEOUT = 80;
@@ -56,7 +59,7 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 	public boolean disableEntitySpawn       = true;
 	public boolean disableEntityDamage      = true;
 	public boolean disableEntityChangeBlock = true;
-	public boolean disableEntityTarget = true;
+	public boolean disableEntityTarget      = true;
 
 	public boolean forceWeather = true;
 	public boolean weatherState = false;// false for clear, true for rain
@@ -165,10 +168,10 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		});
 
 		RTopic commandTopic = redisson.getTopic("MineTile:CommandSync");
-		commandTopic.addListener(GlobalCommand.class,(channel,command)->{
+		commandTopic.addListener(GlobalCommand.class, (channel, command) -> {
 			getLogger().info("Received Global Command: " + command.command);
 			if (command.command.length() > 0) {
-				Bukkit.getScheduler().runTask(ContainerPlugin.this,()-> getServer().dispatchCommand(Bukkit.getConsoleSender(), command.command));
+				Bukkit.getScheduler().runTask(ContainerPlugin.this, () -> getServer().dispatchCommand(Bukkit.getConsoleSender(), command.command));
 			}
 		});
 
@@ -260,7 +263,21 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 	}
 
 	public void globalTeleport(UUID uuid, double x, double y, double z, float yaw, float pitch) {
+		int tX = (int) Math.round((x / 16) / (double) (tileSize * 2));
+		int tZ = (int) Math.round((z / 16) / (double) (tileSize * 2));
+
 		positionMap.put(uuid, new PlayerLocation(x, y, z, pitch, yaw));
+		if (tX == tileData.x && tZ == tileData.z) {
+			Player player = getServer().getPlayer(uuid);
+			if (player != null) {
+				player.teleport(new Location(
+						defaultWorld,
+						globalToLocal(x, tileData.x, tileSize, worldCenter.getX()),
+						y,
+						globalToLocal(z, tileData.x, tileSize, worldCenter.getZ())
+				));
+			}
+		}
 		teleportTopic.publish(new TeleportRequest(uuid, serverData.serverId, x / 16, y / 16, z / 16));
 	}
 
