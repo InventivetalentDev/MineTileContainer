@@ -164,6 +164,14 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 			}
 		});
 
+		RTopic commandTopic = redisson.getTopic("MineTile:CommandSync");
+		commandTopic.addListener(GlobalCommand.class,(channel,command)->{
+			getLogger().info("Received Global Command: " + command.command);
+			if (command.command.length() > 0) {
+				getServer().dispatchCommand(Bukkit.getConsoleSender(), command.command);
+			}
+		});
+
 		Bukkit.getPluginManager().registerEvents(new WorldLoadListener(this), this);
 		Bukkit.getPluginManager().registerEvents(new PlayerListener(this), this);
 
