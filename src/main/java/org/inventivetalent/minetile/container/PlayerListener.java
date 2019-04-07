@@ -56,7 +56,15 @@ public class PlayerListener implements Listener {
 			if (position != null) {
 				double localX = globalToLocal(position.x, plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX());
 				double localZ = globalToLocal(position.z, plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ());
-				Location loc = new Location(plugin.defaultWorld, localX, position.y, localZ, position.yaw, position.pitch);
+
+				double y = 100;
+				if (position.y == -1) {
+					y = plugin.defaultWorld.getHighestBlockYAt((int) localX, (int) localZ) + 2;
+				} else if (position.y > 0) {
+					y = position.y;
+				}
+
+				Location loc = new Location(plugin.defaultWorld, localX, y, localZ, position.yaw, position.pitch);
 				System.out.println(loc);
 
 				Bukkit.getScheduler().runTask(plugin, () -> {
@@ -195,8 +203,8 @@ public class PlayerListener implements Listener {
 								xDiff == threshold1 ||
 								zDiff == -threshold1 ||
 								zDiff == threshold1) ||
-								(x == plugin.worldEdge.east-2 || x == plugin.worldEdge.west-2 ||
-										x == plugin.worldEdge.north-2 || x == plugin.worldEdge.south+2)) {
+								(x == plugin.worldEdge.east - 2 || x == plugin.worldEdge.west - 2 ||
+										x == plugin.worldEdge.north - 2 || x == plugin.worldEdge.south + 2)) {
 							Location location = new Location(player.getWorld(), aX, aY, aZ);
 							if (!player.getWorld().getBlockAt(location).getType().isSolid()) {
 								player.sendBlockChange(location, glassBlockData);
