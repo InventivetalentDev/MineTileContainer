@@ -6,7 +6,7 @@
 
     <groupId>org.inventivetalent.minetile</groupId>
     <artifactId>container</artifactId>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.2-SNAPSHOT</version>
 
     <build>
         <resources>
@@ -74,7 +74,7 @@
         <dependency>
             <groupId>org.inventivetalent.minetile</groupId>
             <artifactId>common</artifactId>
-            <version>1.0.1-SNAPSHOT</version>
+            <version>1.0.2-SNAPSHOT</version>
         </dependency>
 
         <dependency>
