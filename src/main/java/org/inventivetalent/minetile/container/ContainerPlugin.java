@@ -168,7 +168,7 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		commandTopic.addListener(GlobalCommand.class,(channel,command)->{
 			getLogger().info("Received Global Command: " + command.command);
 			if (command.command.length() > 0) {
-				getServer().dispatchCommand(Bukkit.getConsoleSender(), command.command);
+				Bukkit.getScheduler().runTask(ContainerPlugin.this,()-> getServer().dispatchCommand(Bukkit.getConsoleSender(), command.command));
 			}
 		});
 
