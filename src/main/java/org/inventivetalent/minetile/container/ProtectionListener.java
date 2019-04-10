@@ -122,7 +122,6 @@ public class ProtectionListener implements Listener {
 
 
 
-
 	//// Weather
 
 	@EventHandler(priority = EventPriority.HIGH)

@@ -288,6 +288,12 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		return new PlayerLocation(globalX, player.getLocation().getY(), globalZ, player.getLocation().getPitch(), player.getLocation().getYaw());
 	}
 
+	public PlayerLocation updateGlobalLocation(Player player) {
+		PlayerLocation globalLocation = getGlobalLocation(player);
+		positionMap.putAsync(player.getUniqueId(), globalLocation);
+		return globalLocation;
+	}
+
 	public void discoverServer() {
 		if (!worldLoaded) { return; }
 
