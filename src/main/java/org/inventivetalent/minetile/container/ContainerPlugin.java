@@ -266,7 +266,7 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		int tX = (int) Math.round((x / 16) / (double) (tileSize * 2));
 		int tZ = (int) Math.round((z / 16) / (double) (tileSize * 2));
 
-		positionMap.put(uuid, new PlayerLocation(x, y, z, pitch, yaw));
+		positionMap.putAsync(uuid, new PlayerLocation(x, y, z, pitch, yaw));
 		if (tX == tileData.x && tZ == tileData.z) {
 			Player player = getServer().getPlayer(uuid);
 			if (player != null) {
@@ -278,7 +278,7 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 				));
 			}
 		}
-		teleportTopic.publish(new TeleportRequest(uuid, serverData.serverId, x / 16, y / 16, z / 16));
+		teleportTopic.publishAsync(new TeleportRequest(uuid, serverData.serverId, x / 16, y / 16, z / 16));
 	}
 
 	public PlayerLocation getGlobalLocation(Player player) {
