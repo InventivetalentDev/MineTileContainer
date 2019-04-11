@@ -24,6 +24,9 @@ import org.redisson.api.RTopic;
 import org.redisson.config.Config;
 import org.redisson.config.SingleServerConfig;
 
+import java.io.IOException;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.util.*;
 import java.util.logging.Level;
 
@@ -101,7 +104,14 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 			serverId = UUID.fromString(serverIdString);
 			getLogger().info("Server UUID is " + serverId);
 		}
-		String serverHost = config.getString("server.host", "127.0.0.1");
+		String serverHost = config.getString("server.host", "");
+		String detectedIp = tryGetLocalAddress();
+		if (serverHost == null || serverHost.length() == 0) {
+			getLogger().warning("Configured host IP is empty. Using detected IP: " + detectedIp);
+			serverHost = detectedIp;
+		} else if (!serverHost.equals(detectedIp)) {
+			getLogger().warning("Configured IP (" + serverHost + ") does not match detected IP (" + detectedIp + ").");
+		}
 		serverData = new ServerData(serverId, serverHost, getServer().getPort());
 
 		/// Redis
@@ -246,6 +256,15 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 			}
 		}
 		return true;
+	}
+
+	String tryGetLocalAddress() {
+		try (final DatagramSocket socket = new DatagramSocket()) {
+			socket.connect(InetAddress.getByName("8.8.8.8"), 10002);
+			return socket.getLocalAddress().getHostAddress();
+		} catch (IOException e) {
+			return null;
+		}
 	}
 
 	public void printLocationInfo(Player sender, Location location) {
