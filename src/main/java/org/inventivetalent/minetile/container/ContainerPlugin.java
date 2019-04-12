@@ -17,8 +17,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.inventivetalent.minetile.*;
 import org.redisson.Redisson;
-import org.redisson.api.RBucket;
-import org.redisson.api.RMap;
 import org.redisson.api.RSet;
 import org.redisson.api.RTopic;
 import org.redisson.config.Config;
@@ -27,13 +25,13 @@ import org.redisson.config.SingleServerConfig;
 import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.sql.SQLException;
 import java.util.*;
-import java.util.logging.Level;
 
 import static org.inventivetalent.minetile.CoordinateConverter.globalToLocal;
 import static org.inventivetalent.minetile.CoordinateConverter.localToGlobal;
 
-public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessageListener {
+public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Listener, PluginMessageListener {
 
 	static int TELEPORT_TIMEOUT = 80;
 
@@ -44,6 +42,7 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 	public Location   worldCenter;
 
 	Redisson redisson;
+	MySQL    sql;
 
 	public int     tileSize       = 16;
 	public int     tileSizeBlocks = 256;
@@ -71,12 +70,12 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 	Map<UUID, Integer> teleportTimeout = new HashMap<>();
 	int                timeoutCounter  = 0;
 
-	RMap<String, Object>       settingsMap;
-	RMap<UUID, PlayerLocation> positionMap;
-	RMap<UUID, PlayerData>     playerDataMap;
-	RTopic                     teleportTopic;
-	RSet<CustomTeleport>       customTeleportSet;
-	RBucket<WorldEdge>         worldEdgeBucket;
+	//	RMap<String, Object>       settingsMap;
+	//	RMap<UUID, PlayerLocation> positionMap;
+	//	RMap<UUID, PlayerData>     playerDataMap;
+	RTopic               teleportTopic;
+	RSet<CustomTeleport> customTeleportSet;
+	//	RBucket<WorldEdge>         worldEdgeBucket;
 
 	boolean   worldLoaded;
 	WorldEdge worldEdge = new WorldEdge();
@@ -107,7 +106,7 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		String serverHost = config.getString("server.host", "");
 		String detectedIp = tryGetLocalAddress();
 		if (serverHost == null || serverHost.length() == 0) {
-			getLogger().warning("Configured host IP is empty. Using detected IP: " + detectedIp);
+			getLogger().info("Configured host IP is empty. Using detected IP: " + detectedIp);
 			serverHost = detectedIp;
 		} else if (!serverHost.equals(detectedIp)) {
 			getLogger().warning("Configured IP (" + serverHost + ") does not match detected IP (" + detectedIp + ").");
@@ -126,25 +125,44 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		} else {
 			getLogger().warning("No password set for redis");
 		}
-
-		redisson = (Redisson) Redisson.create(redisConfig);
+		try {
+			redisson = (Redisson) Redisson.create(redisConfig);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to connect to Redis", e);
+		}
 		getLogger().info("Connected to Redis @ " + address);
 
-		settingsMap = redisson.getMap("MineTile:Settings");
-		getLogger().info("Got settings from Redis");
-		settingsMap.forEach((key, value) -> getLogger().info(key + ": " + value));
+		/// SQL
+		sql = new MySQL();
+		try {
+			sql.connect(config.getString("sql.host", "127.0.0.1"), config.getInt("sql.port", 3306), config.getString("sql.user"), config.getString("sql.pass"), config.getString("sql.db"), config.getString("sql.prefix", "minetile_"));
+		} catch (SQLException e) {
+			throw new RuntimeException("Failed to connect to MySQL", e);
+		}
+		getLogger().info("Connected to MySQL");
+		try {
+			sql.initTables();
+		} catch (SQLException e) {
+			throw new RuntimeException("Failed to init tables", e);
+		}
 
-		try {
-			tileSize = (int) settingsMap.getOrDefault("tileSize", 16);
+		getSQL().execute(() -> {
+			try {
+				tileSize = Integer.parseInt(getSQL().getSetting("tileSize"));
+			} catch (NumberFormatException ignored) {
+				tileSize = config.getInt("defaults.tileSize", 16);
+			}
 			tileSizeBlocks = tileSize * 16;
-		} catch (Exception e) {
-			getLogger().log(Level.WARNING, "Failed to get tileSize setting from redis", e);
-		}
-		try {
-			syncPlayerData = (boolean) settingsMap.getOrDefault("syncPlayerData", true);
-		} catch (Exception e) {
-			getLogger().log(Level.WARNING, "Failed to get syncPlayerData setting from redis", e);
-		}
+
+			syncPlayerData = !"false".equals(getSQL().getSetting("syncPlayerData"));
+
+			worldEdge = new WorldEdge(
+					Integer.parseInt(getSQL().getSetting("WorldEdge:north")),
+					Integer.parseInt(getSQL().getSetting("WorldEdge:east")),
+					Integer.parseInt(getSQL().getSetting("WorldEdge:south")),
+					Integer.parseInt(getSQL().getSetting("WorldEdge:west"))
+			);
+		});
 
 		disableBreak = config.getBoolean("protection.blocks.break", true);
 		disablePlace = config.getBoolean("protection.blocks.place", true);
@@ -203,10 +221,19 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 
 	}
 
+	public Redisson getRedis() {
+		return this.redisson;
+	}
+
+	public MySQL getSQL() {
+		return this.sql;
+	}
+
 	@Override
 	public void onDisable() {
-		RMap<UUID, TileData> tileMap = redisson.getMap("MineTile:Tiles");
-		tileMap.remove(serverData.serverId);
+		getSQL().execute(() -> {
+			getSQL().removeTile(serverData.serverId);
+		});
 	}
 
 	@Override
@@ -242,7 +269,6 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 
 			if (command.getName().equalsIgnoreCase("globalteleport")) {
 				if (sender.hasPermission("minetile.globalteleport")) {
-					UUID uuid = player.getUniqueId();
 					if (args.length != 3) {
 						return false;
 					}
@@ -250,7 +276,7 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 					double y = Double.parseDouble(args[1]);
 					double z = Double.parseDouble(args[2]);
 
-					globalTeleport(uuid, x, y, z);
+					globalTeleport(player, x, y, z);
 					sender.sendMessage("Teleport queued");
 				}
 			}
@@ -277,27 +303,26 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 		sender.sendMessage("Chunk File:     r" + (location.getChunk().getX() >> 5) + "." + (location.getChunk().getZ() >> 5) + ".mca");
 	}
 
-	public void globalTeleport(UUID uuid, double x, double y, double z) {
-		globalTeleport(uuid, x, y, z, 0, 0);
+	public void globalTeleport(Player player, double x, double y, double z) {
+		globalTeleport(player, x, y, z, 0, 0);
 	}
 
-	public void globalTeleport(UUID uuid, double x, double y, double z, float yaw, float pitch) {
+	public void globalTeleport(Player player, double x, double y, double z, float yaw, float pitch) {
 		int tX = (int) Math.round((x / 16) / (double) (tileSize * 2));
 		int tZ = (int) Math.round((z / 16) / (double) (tileSize * 2));
 
-		positionMap.putAsync(uuid, new PlayerLocation(x, y, z, pitch, yaw));
+		updateGlobalLocation(player);
 		if (tX == tileData.x && tZ == tileData.z) {
-			Player player = getServer().getPlayer(uuid);
-			if (player != null) {
-				player.teleport(new Location(
-						defaultWorld,
-						globalToLocal(x, tileData.x, tileSize, worldCenter.getX()),
-						y,
-						globalToLocal(z, tileData.x, tileSize, worldCenter.getZ())
-				));
-			}
+			player.teleport(new Location(
+					defaultWorld,
+					globalToLocal(x, tileData.x, tileSize, worldCenter.getX()),
+					y,
+					globalToLocal(z, tileData.x, tileSize, worldCenter.getZ()),
+					yaw,
+					pitch
+			));
 		}
-		teleportTopic.publishAsync(new TeleportRequest(uuid, serverData.serverId, x / 16, y / 16, z / 16));
+		teleportTopic.publishAsync(new TeleportRequest(player.getUniqueId(), serverData.serverId, x / 16, y / 16, z / 16));
 	}
 
 	public PlayerLocation getGlobalLocation(Player player) {
@@ -309,15 +334,14 @@ public class ContainerPlugin extends JavaPlugin implements Listener, PluginMessa
 
 	public PlayerLocation updateGlobalLocation(Player player) {
 		PlayerLocation globalLocation = getGlobalLocation(player);
-		positionMap.putAsync(player.getUniqueId(), globalLocation);
+		getSQL().execute(() -> getSQL().updatePosition(player.getUniqueId(), globalLocation));
 		return globalLocation;
 	}
 
 	public void discoverServer() {
 		if (!worldLoaded) { return; }
 
-		RMap<UUID, TileData> tileMap = redisson.getMap("MineTile:Tiles");
-		tileMap.put(serverData.serverId, tileData);
+		getSQL().execute(() -> getSQL().updateTile(serverData.serverId, tileData.x, tileData.z));
 
 		RTopic serverTopic = redisson.getTopic("MineTile:ServerDiscovery");
 		System.out.println(serverData);

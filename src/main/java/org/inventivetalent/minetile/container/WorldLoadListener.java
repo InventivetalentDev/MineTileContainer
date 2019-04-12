@@ -7,7 +7,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.world.WorldLoadEvent;
 import org.inventivetalent.minetile.TileData;
-import org.inventivetalent.minetile.WorldEdge;
 
 public class WorldLoadListener implements Listener {
 
@@ -46,16 +45,9 @@ public class WorldLoadListener implements Listener {
 		worldBorder.setCenter(plugin.worldCenter);
 		worldBorder.setSize(plugin.tileSize * 2 * 16 + 32 * 16);// Set world border to tile size + 16 chunks padding since the surrounding chunks are also included
 
-		plugin.positionMap = plugin.redisson.getMap("MineTile:Positions");
-		plugin.playerDataMap = plugin.redisson.getMap("MineTile:PlayerData");
 		plugin.teleportTopic = plugin.redisson.getTopic("MineTile:Teleports");
 		plugin.customTeleportSet = plugin.redisson.getSet("MineTile:CustomTeleports");
-		plugin.worldEdgeBucket = plugin.redisson.getBucket("MineTile:WorldEdge");
 
-		plugin.worldEdge = plugin.worldEdgeBucket.get();
-		if (plugin.worldEdge == null) {
-			plugin.worldEdge = new WorldEdge(10000000, 10000000, -10000000, -10000000);
-		}
 
 		plugin.discoverServer();
 	}

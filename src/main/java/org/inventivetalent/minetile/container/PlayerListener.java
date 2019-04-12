@@ -11,19 +11,18 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.io.BukkitObjectInputStream;
 import org.bukkit.util.io.BukkitObjectOutputStream;
-import org.inventivetalent.minetile.CustomTeleport;
 import org.inventivetalent.minetile.PlayerData;
 import org.inventivetalent.minetile.PlayerLocation;
 import org.inventivetalent.minetile.TeleportRequest;
-import org.redisson.api.RMap;
-import org.redisson.api.RSet;
 import org.redisson.api.RTopic;
 import org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.UUID;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.logging.Level;
 
 import static org.inventivetalent.minetile.CoordinateConverter.globalToLocal;
@@ -33,56 +32,59 @@ public class PlayerListener implements Listener {
 
 	private ContainerPlugin plugin;
 
-	RMap<UUID, PlayerLocation> positionMap;
-	RMap<UUID, PlayerData>     playerDataMap;
-	RTopic                     teleportTopic;
-	RSet<CustomTeleport>       customTeleportSet;
+	//	RMap<UUID, PlayerLocation> positionMap;
+	//	RMap<UUID, PlayerData>     playerDataMap;
+	RTopic teleportTopic;
+	//	RSet<CustomTeleport>       customTeleportSet;
 
 	public PlayerListener(ContainerPlugin plugin) {
 		this.plugin = plugin;
 
-		positionMap = plugin.redisson.getMap("MineTile:Positions");
-		playerDataMap = plugin.redisson.getMap("MineTile:PlayerData");
+		//		positionMap = plugin.redisson.getMap("MineTile:Positions");
+		//		playerDataMap = plugin.redisson.getMap("MineTile:PlayerData");
 		teleportTopic = plugin.redisson.getTopic("MineTile:Teleports");
-		customTeleportSet = plugin.redisson.getSet("MineTile:CustomTeleports");
+		//		customTeleportSet = plugin.redisson.getSet("MineTile:CustomTeleports");
 	}
 
 	@EventHandler
 	public void on(PlayerJoinEvent event) {
 		plugin.teleportTimeout.put(event.getPlayer().getUniqueId(), ContainerPlugin.TELEPORT_TIMEOUT);
 
-		positionMap.getAsync(event.getPlayer().getUniqueId()).thenAccept(position -> {
-			System.out.println("TP To " + position);
-			if (position != null) {
-				double localX = globalToLocal(position.x, plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX());
-				double localZ = globalToLocal(position.z, plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ());
+		plugin.getSQL().execute(() -> {
+			try {
+				PreparedStatement stmt = plugin.getSQL().stmt("SELECT * FROM `" + plugin.getSQL().prefix + "positions` WHERE `uuid`=?;");
+				stmt.setString(1, event.getPlayer().getUniqueId().toString());
+				ResultSet resultSet = stmt.executeQuery();
+				if (resultSet.next()) {
+					PlayerLocation position = PlayerLocation.fromSQL(resultSet);
+					double localX = globalToLocal(position.x, plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX());
+					double localZ = globalToLocal(position.z, plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ());
 
-				double y = 100;
-				if (position.y == -1) {
-					y = plugin.defaultWorld.getHighestBlockYAt((int) localX, (int) localZ) + 2;
-				} else if (position.y > 0) {
-					y = position.y;
+					double y = 100;
+					if (position.y == -1) {
+						y = plugin.defaultWorld.getHighestBlockYAt((int) localX, (int) localZ) + 2;
+					} else if (position.y > 0) {
+						y = position.y;
+					}
+
+					Location loc = new Location(plugin.defaultWorld, localX, y, localZ, position.yaw, position.pitch);
+					System.out.println(loc);
+
+					Bukkit.getScheduler().runTask(plugin, () -> event.getPlayer().teleport(loc));
+				} else {
+					Bukkit.getScheduler().runTask(plugin, () -> event.getPlayer().teleport(new Location(plugin.defaultWorld, plugin.worldCenter.getBlockX(), plugin.defaultWorld.getHighestBlockYAt(plugin.worldCenter.getBlockX(), plugin.worldCenter.getBlockZ()) + 2, plugin.worldCenter.getBlockZ())));
 				}
 
-				Location loc = new Location(plugin.defaultWorld, localX, y, localZ, position.yaw, position.pitch);
-				System.out.println(loc);
-
-				Bukkit.getScheduler().runTask(plugin, () -> {
-					event.getPlayer().teleport(loc);
-				});
-			} else {
-				Bukkit.getScheduler().runTask(plugin, () -> {
-					event.getPlayer().teleport(new Location(plugin.defaultWorld, plugin.worldCenter.getBlockX(), plugin.defaultWorld.getHighestBlockYAt(plugin.worldCenter.getBlockX(), plugin.worldCenter.getBlockZ()) + 2, plugin.worldCenter.getBlockZ()));
-				});
+				stmt = plugin.getSQL().stmt("SELECT * FROM `" + plugin.getSQL().prefix + "player_data` WHERE `uuid`=?;");
+				stmt.setString(1, event.getPlayer().getUniqueId().toString());
+				resultSet = stmt.executeQuery();
+				if (resultSet.next()) {
+					PlayerData playerData = PlayerData.fromSQL(resultSet);
+					Bukkit.getScheduler().runTask(plugin, () -> restorePlayerData(event.getPlayer(), playerData));
+				}
+			} catch (SQLException e) {
+				throw new RuntimeException(e);
 			}
-
-			playerDataMap.getAsync(event.getPlayer().getUniqueId()).thenAccept(data -> {
-				if (data != null) {
-					Bukkit.getScheduler().runTask(plugin, () -> {
-						restorePlayerData(event.getPlayer(), data);
-					});
-				}
-			});
 		});
 	}
 
@@ -146,36 +148,31 @@ public class PlayerListener implements Listener {
 		}
 
 		if (finalLeaving && plugin.timeoutCounter % 2 == 0) {
-			customTeleportSet.readAllAsync().thenAccept(customTeleports -> {
-				double globalX = localToGlobal(event.getTo().getX(), plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX());
-				double globalZ = localToGlobal(event.getTo().getZ(), plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ());
-				if (customTeleports.size() > 0) {
-					for (CustomTeleport tp : customTeleportSet) {
-						if (tp.applies((int) globalX, (int) globalZ)) {
-							if (tp.action.hasX) { globalX = tp.action.coordinateX; }
-							if (tp.action.hasZ) { globalZ = tp.action.coordinateZ; }
-						}
-					}
-				}
+			double globalX = localToGlobal(event.getTo().getX(), plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX());
+			double globalZ = localToGlobal(event.getTo().getZ(), plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ());
+			showWall(event.getPlayer(), (int) globalX, (int) globalZ);
 
-				showWall(event.getPlayer(), (int) globalX, (int) globalZ);
-				positionMap.putAsync(event.getPlayer().getUniqueId(), new PlayerLocation(globalX, event.getTo().getY(), globalZ, event.getTo().getPitch(), event.getTo().getYaw()));
+			///TODO
+			//			if (customTeleports.size() > 0) {
+			//				for (CustomTeleport tp : customTeleportSet) {
+			//					if (tp.applies((int) globalX, (int) globalZ)) {
+			//						if (tp.action.hasX) { globalX = tp.action.coordinateX; }
+			//						if (tp.action.hasZ) { globalZ = tp.action.coordinateZ; }
+			//					}
+			//				}
+			//			}
 
-				//			System.out.println(teleportTimeout);
-
-				if (plugin.teleportTimeout.containsKey(event.getPlayer().getUniqueId())) { return; }
-				plugin.teleportTimeout.put(event.getPlayer().getUniqueId(), ContainerPlugin.TELEPORT_TIMEOUT);
-
-				teleportTopic.publishAsync(new TeleportRequest(event.getPlayer().getUniqueId(), plugin.serverData.serverId, globalX / 16, event.getTo().getY() / 16, globalZ / 16));
-
-				double gX = localToGlobal(event.getPlayer().getLocation().getX(), plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX());
-				double gZ = localToGlobal(event.getPlayer().getLocation().getZ(), plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ());
-				positionMap.putAsync(event.getPlayer().getUniqueId(), new PlayerLocation(gX, event.getPlayer().getLocation().getY(), gZ, event.getPlayer().getLocation().getPitch(), event.getPlayer().getLocation().getYaw()));
+			plugin.getSQL().execute(() -> {
+				plugin.getSQL().updatePosition(event.getPlayer().getUniqueId(), globalX, event.getTo().getY(), globalZ, event.getTo().getPitch(), event.getTo().getYaw());
 
 				PlayerData playerData = storePlayerData(event.getPlayer());
-				playerDataMap.putAsync(event.getPlayer().getUniqueId(), playerData);
+				plugin.getSQL().updatePlayerData(event.getPlayer().getUniqueId(), playerData);
 			});
 
+			if (plugin.teleportTimeout.containsKey(event.getPlayer().getUniqueId())) { return; }
+			plugin.teleportTimeout.put(event.getPlayer().getUniqueId(), ContainerPlugin.TELEPORT_TIMEOUT);
+
+			teleportTopic.publishAsync(new TeleportRequest(event.getPlayer().getUniqueId(), plugin.serverData.serverId, globalX / 16, event.getTo().getY() / 16, globalZ / 16));
 		} else if (!finalLeaving) {
 			plugin.teleportTimeout.remove(event.getPlayer().getUniqueId());
 		}

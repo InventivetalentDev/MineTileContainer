@@ -3,6 +3,14 @@ redis:
   port: 6379
   password: "admin123"
 
+sql:
+  host: 127.0.0.1
+  port: 3306
+  user: "minetile"
+  password: "admin123"
+  db: "minetile"
+  prefix: "minetile_"
+
 server:
   host: 127.0.0.1
 
