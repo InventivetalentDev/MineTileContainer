@@ -4,10 +4,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.*;
-import org.bukkit.event.entity.EntityChangeBlockEvent;
-import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.EntitySpawnEvent;
-import org.bukkit.event.entity.EntityTargetEvent;
+import org.bukkit.event.entity.*;
 import org.bukkit.event.weather.WeatherChangeEvent;
 
 public class ProtectionListener implements Listener {
@@ -120,7 +117,12 @@ public class ProtectionListener implements Listener {
 		}
 	}
 
-
+	@EventHandler(priority = EventPriority.HIGH)
+	public void on(FoodLevelChangeEvent event) {
+		if (plugin.disablePlayerHunger) {
+			event.setCancelled(true);
+		}
+	}
 
 	//// Weather
 

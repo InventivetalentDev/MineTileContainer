@@ -62,6 +62,7 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 	public boolean disableEntityDamage      = true;
 	public boolean disableEntityChangeBlock = true;
 	public boolean disableEntityTarget      = true;
+	public boolean disablePlayerHunger=true;
 
 	public boolean forceWeather = true;
 	public boolean weatherState = false;// false for clear, true for rain
@@ -178,6 +179,7 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 		disableEntityDamage = config.getBoolean("protection.entities.damage", true);
 		disableEntityChangeBlock = config.getBoolean("protection.entities.changeBlock", true);
 		disableEntityTarget = config.getBoolean("protection.entities.target", true);
+		disablePlayerHunger = config.getBoolean("protection.entities.hunger", true);
 
 		String weatherString = config.getString("protection.weather.force", "clear");
 		weatherState = "rain".equalsIgnoreCase(weatherString);

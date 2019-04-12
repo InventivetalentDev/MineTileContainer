@@ -38,5 +38,6 @@ protection:
     damage: true  # Disable entity damage
     changeBlock: true #Disable entities changing blocks
     target: true  # Disable entity's targeting
+    hunger: true  # Disable player hunger
   weather:
     force: clear  # Weather to force (clear, rain, or false to disable)
