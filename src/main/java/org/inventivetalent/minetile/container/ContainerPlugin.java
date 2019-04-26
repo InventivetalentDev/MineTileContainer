@@ -154,6 +154,7 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 				tileSize = config.getInt("defaults.tileSize", 16);
 			}
 			tileSizeBlocks = tileSize * 16;
+			getLogger().info("Tile Size is " + tileSize + " chunks / " + tileSizeBlocks + " blocks");
 
 			syncPlayerData = !"false".equals(getSQL().getSetting("syncPlayerData"));
 
@@ -318,16 +319,15 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 			double localX = globalToLocal(x, tileData.x, tileSize, worldCenter.getX());
 			double localZ = globalToLocal(z, tileData.x, tileSize, worldCenter.getZ());
 
-			defaultWorld.getChunkAtAsync((int)localX>>4,(int)localZ>>4).thenAccept(chunk -> {
-				Bukkit.getScheduler().runTask(ContainerPlugin.this, () -> player.teleport(new Location(
-						defaultWorld,
-						localX,
-						y,
-						localZ,
-						yaw,
-						pitch
-				)));
-			});
+			player.teleportAsync(new Location(
+					defaultWorld,
+					localX,
+					y,
+					localZ,
+					yaw,
+					pitch
+			));
+
 			return;
 		}
 		teleportTopic.publishAsync(new TeleportRequest(player.getUniqueId(), serverData.serverId, x / 16, y / 16, z / 16));

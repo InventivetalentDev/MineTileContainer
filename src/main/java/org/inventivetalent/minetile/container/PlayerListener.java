@@ -68,11 +68,9 @@ public class PlayerListener implements Listener {
 					}
 
 					Location loc = new Location(plugin.defaultWorld, localX, y, localZ, position.yaw, position.pitch);
-					System.out.println(loc);
-
-					plugin.defaultWorld.getChunkAtAsync((int)localX>>4,(int)localZ>>4).thenAccept(chunk-> Bukkit.getScheduler().runTask(plugin, () -> event.getPlayer().teleport(loc)));
+					event.getPlayer().teleportAsync(loc);
 				} else {
-					Bukkit.getScheduler().runTask(plugin, () -> event.getPlayer().teleport(new Location(plugin.defaultWorld, plugin.worldCenter.getBlockX(), plugin.defaultWorld.getHighestBlockYAt(plugin.worldCenter.getBlockX(), plugin.worldCenter.getBlockZ()) + 2, plugin.worldCenter.getBlockZ())));
+					event.getPlayer().teleportAsync(new Location(plugin.defaultWorld, plugin.worldCenter.getBlockX(), plugin.defaultWorld.getHighestBlockYAt(plugin.worldCenter.getBlockX(), plugin.worldCenter.getBlockZ()) + 2, plugin.worldCenter.getBlockZ()));
 				}
 
 				stmt = plugin.getSQL().stmt("SELECT * FROM `" + plugin.getSQL().prefix + "player_data` WHERE `uuid`=?;");
