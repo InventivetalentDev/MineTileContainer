@@ -97,7 +97,16 @@ public class ProtectionListener implements Listener {
 	}
 
 	@EventHandler(priority = EventPriority.HIGH)
+	public void on(CreatureSpawnEvent event) {
+		if (event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.CUSTOM) { return; }
+		if (plugin.disableEntitySpawn) {
+			event.setCancelled(true);
+		}
+	}
+
+	@EventHandler(priority = EventPriority.HIGH)
 	public void on(EntityDamageEvent event) {
+		if (event.getCause() == EntityDamageEvent.DamageCause.CUSTOM) { return; }
 		if (plugin.disableEntityDamage) {
 			event.setCancelled(true);
 		}

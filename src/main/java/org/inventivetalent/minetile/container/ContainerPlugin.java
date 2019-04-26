@@ -315,14 +315,19 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 
 		updateGlobalLocation(player);
 		if (tX == tileData.x && tZ == tileData.z) {
-			player.teleport(new Location(
-					defaultWorld,
-					globalToLocal(x, tileData.x, tileSize, worldCenter.getX()),
-					y,
-					globalToLocal(z, tileData.x, tileSize, worldCenter.getZ()),
-					yaw,
-					pitch
-			));
+			double localX = globalToLocal(x, tileData.x, tileSize, worldCenter.getX());
+			double localZ = globalToLocal(z, tileData.x, tileSize, worldCenter.getZ());
+
+			defaultWorld.getChunkAtAsync((int)localX>>4,(int)localZ>>4).thenAccept(chunk -> {
+				Bukkit.getScheduler().runTask(ContainerPlugin.this, () -> player.teleport(new Location(
+						defaultWorld,
+						localX,
+						y,
+						localZ,
+						yaw,
+						pitch
+				)));
+			});
 		}
 		teleportTopic.publishAsync(new TeleportRequest(player.getUniqueId(), serverData.serverId, x / 16, y / 16, z / 16));
 	}
