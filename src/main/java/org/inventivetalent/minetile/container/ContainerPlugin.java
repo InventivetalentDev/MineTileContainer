@@ -328,6 +328,7 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 						pitch
 				)));
 			});
+			return;
 		}
 		teleportTopic.publishAsync(new TeleportRequest(player.getUniqueId(), serverData.serverId, x / 16, y / 16, z / 16));
 	}
