@@ -40,6 +40,10 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 	public ServerData serverData;
 	public TileData   tileData;
 	public Location   worldCenter;
+	public Location   wallCenter;
+
+	public int offsetX = 0;
+	public int offsetZ = 0;
 
 	Redisson redisson;
 	MySQL    sql;
@@ -47,6 +51,7 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 	public int     tileSize       = 16;
 	public int     tileSizeBlocks = 256;
 	public boolean syncPlayerData = true;
+	public boolean localIsGlobal  = false;
 
 	public boolean disablePlace  = true;
 	public boolean disableBreak  = true;
@@ -62,7 +67,7 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 	public boolean disableEntityDamage      = true;
 	public boolean disableEntityChangeBlock = true;
 	public boolean disableEntityTarget      = true;
-	public boolean disablePlayerHunger=true;
+	public boolean disablePlayerHunger      = true;
 
 	public boolean forceWeather = true;
 	public boolean weatherState = false;// false for clear, true for rain
@@ -157,6 +162,15 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 			getLogger().info("Tile Size is " + tileSize + " chunks / " + tileSizeBlocks + " blocks");
 
 			syncPlayerData = !"false".equals(getSQL().getSetting("syncPlayerData"));
+
+			localIsGlobal = "true".equals(getSQL().getSetting("localIsGlobal"));
+
+			try {
+				offsetX = Integer.parseInt(getSQL().getSetting("tileOffsetX"));
+				offsetZ = Integer.parseInt(getSQL().getSetting("tileOffsetZ"));
+			} catch (NumberFormatException e) {
+				e.printStackTrace();
+			}
 
 			worldEdge = new WorldEdge(
 					Integer.parseInt(getSQL().getSetting("WorldEdge:north")),
@@ -300,7 +314,10 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 		sender.sendMessage("Tile:  " + tileData.x + "," + tileData.z);
 		sender.sendMessage(" ");
 		sender.sendMessage("Local Coordinates:  " + location.getX() + "," + location.getZ());
-		sender.sendMessage("Global Coordinates: " + (location.getX() - worldCenter.getX() + (tileData.x * tileSize * 2 * 16)) + "," + (location.getZ() - worldCenter.getZ() + (tileData.z * tileSize * 2 * 16)));
+		sender.sendMessage("Global Coordinates: " + localToGlobal(location.getX(), tileData.x, tileSize, worldCenter.getX(), localIsGlobal) + "," + localToGlobal(location.getZ(), tileData.z, tileSize, worldCenter.getZ(), localIsGlobal));
+		///TODO: might not make sense to use the worldCenter when converting coordinates
+		sender.sendMessage(" ");
+		sender.sendMessage("World Center:  " + worldCenter);
 		sender.sendMessage(" ");
 		sender.sendMessage("Current Chunk:  " + location.getChunk().getX() + "," + location.getChunk().getZ());
 		sender.sendMessage("Chunk File:     r" + (location.getChunk().getX() >> 5) + "." + (location.getChunk().getZ() >> 5) + ".mca");
@@ -311,13 +328,14 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 	}
 
 	public void globalTeleport(Player player, double x, double y, double z, float yaw, float pitch) {
-		int tX = (int) Math.round((x / 16) / (double) (tileSize * 2));
-		int tZ = (int) Math.round((z / 16) / (double) (tileSize * 2));
+		int tX = CoordinateConverter.tile(x, tileSize, offsetX);
+		int tZ = CoordinateConverter.tile(z , tileSize, offsetZ);
 
-		updateGlobalLocation(player);
+//		updateGlobalLocation(player);
+		setGlobalLocation(player.getUniqueId(), x, y, z, yaw, pitch);
 		if (tX == tileData.x && tZ == tileData.z) {
-			double localX = globalToLocal(x, tileData.x, tileSize, worldCenter.getX());
-			double localZ = globalToLocal(z, tileData.x, tileSize, worldCenter.getZ());
+			double localX = globalToLocal(x, tileData.x, tileSize, worldCenter.getX(), localIsGlobal);
+			double localZ = globalToLocal(z, tileData.x, tileSize, worldCenter.getZ(), localIsGlobal);
 
 			player.teleportAsync(new Location(
 					defaultWorld,
@@ -334,8 +352,8 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 	}
 
 	public PlayerLocation getGlobalLocation(Player player) {
-		double globalX = localToGlobal(player.getLocation().getX(), tileData.x, tileSize, worldCenter.getX());
-		double globalZ = localToGlobal(player.getLocation().getZ(), tileData.z, tileSize, worldCenter.getZ());
+		double globalX = localToGlobal(player.getLocation().getX(), tileData.x, tileSize, worldCenter.getX(), localIsGlobal);
+		double globalZ = localToGlobal(player.getLocation().getZ(), tileData.z, tileSize, worldCenter.getZ(), localIsGlobal);
 
 		return new PlayerLocation(globalX, player.getLocation().getY(), globalZ, player.getLocation().getPitch(), player.getLocation().getYaw());
 	}
@@ -343,6 +361,12 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 	public PlayerLocation updateGlobalLocation(Player player) {
 		PlayerLocation globalLocation = getGlobalLocation(player);
 		getSQL().execute(() -> getSQL().updatePosition(player.getUniqueId(), globalLocation));
+		return globalLocation;
+	}
+
+	public PlayerLocation setGlobalLocation(UUID uuid, double x, double y, double z, float yaw, float pitch) {
+		PlayerLocation globalLocation = new PlayerLocation(x, y, z, pitch, yaw);
+		getSQL().execute(() -> getSQL().updatePosition(uuid, globalLocation));
 		return globalLocation;
 	}
 

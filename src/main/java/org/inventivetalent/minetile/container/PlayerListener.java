@@ -57,8 +57,8 @@ public class PlayerListener implements Listener {
 				ResultSet resultSet = stmt.executeQuery();
 				if (resultSet.next()) {
 					PlayerLocation position = PlayerLocation.fromSQL(resultSet);
-					double localX = globalToLocal(position.x, plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX());
-					double localZ = globalToLocal(position.z, plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ());
+					double localX = globalToLocal(position.x, plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX(),plugin.localIsGlobal);
+					double localZ = globalToLocal(position.z, plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ(),plugin.localIsGlobal);
 
 					double y = 100;
 					if (position.y == -1) {
@@ -146,8 +146,8 @@ public class PlayerListener implements Listener {
 		}
 
 		if (finalLeaving && plugin.timeoutCounter % 2 == 0) {
-			double globalX = localToGlobal(event.getTo().getX(), plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX());
-			double globalZ = localToGlobal(event.getTo().getZ(), plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ());
+			double globalX = localToGlobal(event.getTo().getX(), plugin.tileData.x, plugin.tileSize, plugin.worldCenter.getX(),plugin.localIsGlobal);
+			double globalZ = localToGlobal(event.getTo().getZ(), plugin.tileData.z, plugin.tileSize, plugin.worldCenter.getZ(),plugin.localIsGlobal);
 			showWall(event.getPlayer(), (int) globalX, (int) globalZ);
 
 			///TODO

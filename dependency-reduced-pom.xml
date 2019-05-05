@@ -21,6 +21,7 @@
         </includes>
       </resource>
     </resources>
+    <finalName>MineTileContainer</finalName>
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
