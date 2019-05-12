@@ -3,10 +3,12 @@ package org.inventivetalent.minetile.container;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.WorldBorder;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.world.WorldLoadEvent;
 import org.inventivetalent.minetile.CoordinateConverter;
+import org.inventivetalent.minetile.TeleportRequest;
 import org.inventivetalent.minetile.TileData;
 
 public class WorldLoadListener implements Listener {
@@ -16,7 +18,6 @@ public class WorldLoadListener implements Listener {
 	public WorldLoadListener(ContainerPlugin plugin) {
 		this.plugin = plugin;
 	}
-
 
 	@EventHandler
 	public void on(WorldLoadEvent event) {
@@ -39,13 +40,11 @@ public class WorldLoadListener implements Listener {
 		plugin.getLogger().info("= ");
 		plugin.getLogger().info("================================================");
 
-
-
 		plugin.tileData = new TileData(tileX, tileZ, 0);
-		plugin.worldCenter = new Location(plugin.defaultWorld, plugin.tileSizeBlocks+(plugin.tileSizeBlocks*2*(plugin.localIsGlobal?tileX:1))-plugin.offsetX, 0,plugin.tileSizeBlocks+ (plugin.tileSizeBlocks*2*(plugin.localIsGlobal?tileZ:1)));
+		plugin.worldCenter = new Location(plugin.defaultWorld, plugin.tileSizeBlocks + (plugin.tileSizeBlocks * 2 * (plugin.localIsGlobal ? tileX : 1)) - plugin.offsetX, 0, plugin.tileSizeBlocks + (plugin.tileSizeBlocks * 2 * (plugin.localIsGlobal ? tileZ : 1)));
 
 		plugin.getLogger().info("Tile Center is at " + plugin.worldCenter.getX() + "  " + plugin.worldCenter.getZ());
-		plugin.getLogger().info("Calculated tile location is "+ CoordinateConverter.tile(plugin.worldCenter.getX(),plugin.tileSize,plugin.offsetX)+"  "+CoordinateConverter.tile(plugin.worldCenter.getZ(),plugin.tileSize,plugin.offsetZ));
+		plugin.getLogger().info("Calculated tile location is " + CoordinateConverter.tile(plugin.worldCenter.getX(), plugin.tileSize, plugin.offsetX) + "  " + CoordinateConverter.tile(plugin.worldCenter.getZ(), plugin.tileSize, plugin.offsetZ));
 
 		WorldBorder worldBorder = plugin.defaultWorld.getWorldBorder();
 		worldBorder.setCenter(plugin.worldCenter);
@@ -54,6 +53,14 @@ public class WorldLoadListener implements Listener {
 		plugin.teleportTopic = plugin.redisson.getTopic("MineTile:Teleports");
 		plugin.customTeleportSet = plugin.redisson.getSet("MineTile:CustomTeleports");
 
+		plugin.teleportTopic.addListener(TeleportRequest.class, (channel, teleportRequest) -> {
+			if (teleportRequest.x == plugin.tileData.x && teleportRequest.z == plugin.tileData.z) {
+				Player player = Bukkit.getPlayer(teleportRequest.player);
+				if (player != null && player.isOnline()) {
+					plugin.playerListener.doJoinTeleport(player, false, false);
+				}
+			}
+		});
 
 		plugin.discoverServer();
 	}

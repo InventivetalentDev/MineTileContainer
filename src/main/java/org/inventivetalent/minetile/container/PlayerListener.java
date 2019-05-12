@@ -50,10 +50,14 @@ public class PlayerListener implements Listener {
 	public void on(PlayerJoinEvent event) {
 		plugin.teleportTimeout.put(event.getPlayer().getUniqueId(), ContainerPlugin.TELEPORT_TIMEOUT);
 
+		doJoinTeleport(event.getPlayer(), true, true);
+	}
+
+	public  void doJoinTeleport(Player player, boolean useFallback, boolean restoreData) {
 		plugin.getSQL().execute(() -> {
 			try {
 				PreparedStatement stmt = plugin.getSQL().stmt("SELECT * FROM `" + plugin.getSQL().prefix + "positions` WHERE `uuid`=?;");
-				stmt.setString(1, event.getPlayer().getUniqueId().toString());
+				stmt.setString(1, player.getUniqueId().toString());
 				ResultSet resultSet = stmt.executeQuery();
 				if (resultSet.next()) {
 					PlayerLocation position = PlayerLocation.fromSQL(resultSet);
@@ -68,17 +72,19 @@ public class PlayerListener implements Listener {
 					}
 
 					Location loc = new Location(plugin.defaultWorld, localX, y, localZ, position.yaw, position.pitch);
-					event.getPlayer().teleportAsync(loc);
-				} else {
-					event.getPlayer().teleportAsync(new Location(plugin.defaultWorld, plugin.worldCenter.getBlockX(), plugin.defaultWorld.getHighestBlockYAt(plugin.worldCenter.getBlockX(), plugin.worldCenter.getBlockZ()) + 2, plugin.worldCenter.getBlockZ()));
+					player.teleportAsync(loc);
+				} else if(useFallback) {
+					player.teleportAsync(new Location(plugin.defaultWorld, plugin.worldCenter.getBlockX(), plugin.defaultWorld.getHighestBlockYAt(plugin.worldCenter.getBlockX(), plugin.worldCenter.getBlockZ()) + 2, plugin.worldCenter.getBlockZ()));
 				}
 
-				stmt = plugin.getSQL().stmt("SELECT * FROM `" + plugin.getSQL().prefix + "player_data` WHERE `uuid`=?;");
-				stmt.setString(1, event.getPlayer().getUniqueId().toString());
-				resultSet = stmt.executeQuery();
-				if (resultSet.next()) {
-					PlayerData playerData = PlayerData.fromSQL(resultSet);
-					Bukkit.getScheduler().runTask(plugin, () -> restorePlayerData(event.getPlayer(), playerData));
+				if(restoreData) {
+					stmt = plugin.getSQL().stmt("SELECT * FROM `" + plugin.getSQL().prefix + "player_data` WHERE `uuid`=?;");
+					stmt.setString(1, player.getUniqueId().toString());
+					resultSet = stmt.executeQuery();
+					if (resultSet.next()) {
+						PlayerData playerData = PlayerData.fromSQL(resultSet);
+						Bukkit.getScheduler().runTask(plugin, () -> restorePlayerData(player, playerData));
+					}
 				}
 			} catch (SQLException e) {
 				throw new RuntimeException(e);

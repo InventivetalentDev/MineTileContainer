@@ -83,6 +83,8 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 	RSet<CustomTeleport> customTeleportSet;
 	//	RBucket<WorldEdge>         worldEdgeBucket;
 
+	PlayerListener playerListener;
+
 	boolean   worldLoaded;
 	WorldEdge worldEdge = new WorldEdge();
 
@@ -221,7 +223,7 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 		});
 
 		Bukkit.getPluginManager().registerEvents(new WorldLoadListener(this), this);
-		Bukkit.getPluginManager().registerEvents(new PlayerListener(this), this);
+		Bukkit.getPluginManager().registerEvents(playerListener = new PlayerListener(this), this);
 
 		Bukkit.getScheduler().runTaskTimer(this, () -> {
 			Iterator<Map.Entry<UUID, Integer>> iterator = teleportTimeout.entrySet().iterator();
@@ -329,9 +331,9 @@ public class ContainerPlugin extends JavaPlugin implements MineTilePlugin, Liste
 
 	public void globalTeleport(Player player, double x, double y, double z, float yaw, float pitch) {
 		int tX = CoordinateConverter.tile(x, tileSize, offsetX);
-		int tZ = CoordinateConverter.tile(z , tileSize, offsetZ);
+		int tZ = CoordinateConverter.tile(z, tileSize, offsetZ);
 
-//		updateGlobalLocation(player);
+		//		updateGlobalLocation(player);
 		setGlobalLocation(player.getUniqueId(), x, y, z, yaw, pitch);
 		if (tX == tileData.x && tZ == tileData.z) {
 			double localX = globalToLocal(x, tileData.x, tileSize, worldCenter.getX(), localIsGlobal);
