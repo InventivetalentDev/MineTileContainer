@@ -54,7 +54,10 @@ public class WorldLoadListener implements Listener {
 		plugin.customTeleportSet = plugin.redisson.getSet("MineTile:CustomTeleports");
 
 		plugin.teleportTopic.addListener(TeleportRequest.class, (channel, teleportRequest) -> {
-			if (teleportRequest.x == plugin.tileData.x && teleportRequest.z == plugin.tileData.z) {
+			final int tX = CoordinateConverter.tile16th(teleportRequest.x, plugin.tileSize, plugin.offsetX);
+			final int tZ = CoordinateConverter.tile16th(teleportRequest.z, plugin.tileSize, plugin.offsetZ);
+
+			if (tX == plugin.tileData.x && tZ == plugin.tileData.z) {
 				Player player = Bukkit.getPlayer(teleportRequest.player);
 				if (player != null && player.isOnline()) {
 					plugin.playerListener.doJoinTeleport(player, false, false);
