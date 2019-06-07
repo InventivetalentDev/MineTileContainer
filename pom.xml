@@ -55,6 +55,8 @@
                                     <include>org.redisson:**</include>
                                     <include>org.slf4j:**</include>
                                     <include>com.fasterxml.jackson**</include>
+                                    <include>commons**</include>
+                                    <include>org.apache.commons**</include>
                                 </includes>
                             </artifactSet>
                         </configuration>
@@ -80,7 +82,7 @@
         <dependency>
             <groupId>org.inventivetalent.minetile</groupId>
             <artifactId>common</artifactId>
-            <version>1.0.2-SNAPSHOT</version>
+            <version>1.0.3-SNAPSHOT</version>
         </dependency>
 
         <dependency>

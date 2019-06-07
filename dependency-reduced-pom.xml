@@ -48,6 +48,8 @@
                   <include>org.redisson:**</include>
                   <include>org.slf4j:**</include>
                   <include>com.fasterxml.jackson**</include>
+                  <include>commons**</include>
+                  <include>org.apache.commons**</include>
                 </includes>
               </artifactSet>
             </configuration>
